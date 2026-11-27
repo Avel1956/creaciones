@@ -18,20 +18,20 @@
 const c = document.getElementById('c'), x = c.getContext('2d');
 let W, H, P = [], t = 0, mx = .5, my = .5;
 function tam(){ W = c.width = innerWidth * devicePixelRatio; H = c.height = innerHeight * devicePixelRatio; x.fillStyle = '#0d0c0b'; x.fillRect(0,0,W,H); }
-function semilla(){ P = Array.from({length: 1400}, () => ({x: Math.random()*W, y: Math.random()*H, v: 0})); tam(); }
+function semilla(){ tam(); P = Array.from({length: 1400}, () => ({x: Math.random()*W, y: Math.random()*H})); }
 function campo(px, py){
   const s = 0.0016 + mx*0.002;
   return Math.sin(px*s + t) * Math.cos(py*s - t*0.7) * Math.PI * (1.5 + my*2);
 }
 function paso(){
-  x.fillStyle = 'rgba(13,12,11,0.04)'; x.fillRect(0,0,W,H);
-  x.lineWidth = devicePixelRatio;
+  x.fillStyle = 'rgba(13,12,11,0.03)'; x.fillRect(0,0,W,H);
+  x.lineWidth = 1.6 * devicePixelRatio;
   for (const p of P){
     const a = campo(p.x, p.y), ox = p.x, oy = p.y;
-    p.x += Math.cos(a) * 1.6 * devicePixelRatio; p.y += Math.sin(a) * 1.6 * devicePixelRatio;
+    p.x += Math.cos(a) * 2.2 * devicePixelRatio; p.y += Math.sin(a) * 2.2 * devicePixelRatio;
     if (p.x<0||p.x>W||p.y<0||p.y>H){ p.x = Math.random()*W; p.y = Math.random()*H; continue; }
     const h = 20 + 30*Math.sin(a + t);
-    x.strokeStyle = `hsla(${h},90%,${55+15*Math.cos(a)}%,0.35)`;
+    x.strokeStyle = `hsla(${h},90%,${55+15*Math.cos(a)}%,0.7)`;
     x.beginPath(); x.moveTo(ox,oy); x.lineTo(p.x,p.y); x.stroke();
   }
   t += 0.0025; requestAnimationFrame(paso);
