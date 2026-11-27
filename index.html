@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pequeñas creaciones · Andrés Vélez</title>
+<meta name="description" content="Bocetos, simulaciones y experimentos interactivos de Jaime Andrés Vélez.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --papel:#f3efe6; --tinta:#1d1b18; --suave:#6d675d; --linea:#d8d1c3;
+    --acento:#c2410c; --tarjeta:#fbf9f4;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --papel:#151412; --tinta:#ece7dc; --suave:#9a9386; --linea:#2c2a26; --acento:#fb923c; --tarjeta:#1c1b18; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--papel);color:var(--tinta);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;line-height:1.55}
+  a{color:inherit}
+  header{max-width:1180px;margin:0 auto;padding:64px 24px 28px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;border-bottom:1px solid var(--linea)}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:400;font-size:clamp(40px,7vw,84px);line-height:.95;margin:0;letter-spacing:-.02em}
+  h1 em{font-style:italic;color:var(--acento)}
+  .sub{color:var(--suave);max-width:46ch;margin:14px 0 0}
+  .contador{font-size:12px;color:var(--suave);text-align:right;white-space:nowrap}
+  .contador b{display:block;font-family:Fraunces,serif;font-weight:400;font-size:48px;color:var(--tinta);line-height:1}
+  .filtros{max-width:1180px;margin:0 auto;padding:18px 24px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .filtros input{flex:1 1 220px;min-width:0;background:transparent;border:1px solid var(--linea);color:inherit;font:inherit;padding:8px 12px;border-radius:2px}
+  .chip{background:transparent;border:1px solid var(--linea);color:var(--suave);font:inherit;font-size:12px;padding:6px 10px;border-radius:999px;cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+  main{max-width:1180px;margin:0 auto;padding:8px 24px 80px;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:28px}
+  .obra{display:flex;flex-direction:column;text-decoration:none;background:var(--tarjeta);border:1px solid var(--linea);transition:transform .2s,border-color .2s}
+  .obra:hover{transform:translateY(-3px);border-color:var(--acento)}
+  .vista{position:relative;aspect-ratio:4/3;overflow:hidden;background:#0d0c0b;border-bottom:1px solid var(--linea)}
+  .vista img{width:100%;height:100%;object-fit:cover;display:block}
+  .vista iframe{position:absolute;top:0;left:0;width:400%;height:400%;transform:scale(.25);transform-origin:0 0;border:0;pointer-events:none}
+  .vista .vacia{position:absolute;inset:0;display:grid;place-items:center;font-family:Fraunces,serif;font-size:64px;color:#ffffff22}
+  .info{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .info h2{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:21px;margin:0;line-height:1.15}
+  .info p{margin:0;color:var(--suave);font-size:13px}
+  .meta{margin-top:auto;padding-top:8px;display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--suave)}
+  .etq{color:var(--acento)}
+  .estado{grid-column:1/-1;padding:60px 0;text-align:center;color:var(--suave)}
+  footer{max-width:1180px;margin:0 auto;padding:24px;border-top:1px solid var(--linea);color:var(--suave);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  @media (max-width:600px){header{grid-template-columns:1fr}.contador{text-align:left}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Pequeñas<br><em>creaciones</em></h1>
+    <p class="sub">Bocetos, simulaciones y experimentos interactivos. Cada tarjeta es una pieza viva: ábrela y juega.</p>
+  </div>
+  <div class="contador"><b id="total">·</b>piezas</div>
+</header>
+
+<div class="filtros">
+  <input id="buscar" type="search" placeholder="Buscar…" aria-label="Buscar creaciones">
+  <span id="chips"></span>
+</div>
+
+<main id="galeria"><div class="estado">Cargando…</div></main>
+
+<footer>
+  <span>Jaime Andrés Vélez · Cali</span>
+  <a href="https://github.com/Avel1956/creaciones">código en GitHub ↗</a>
+</footer>
+
+<script>
+// ------------------------------------------------------------------
+// La galería se arma sola: lee la carpeta /creaciones del repositorio.
+// Cada subcarpeta (o archivo .html suelto) es una creación.
+// Las carpetas que empiezan con "_" o "." se ignoran (p. ej. _plantilla).
+// ------------------------------------------------------------------
+const DUENO = location.hostname.endsWith('.github.io') ? location.hostname.split('.')[0] : 'Avel1956';
+const REPO  = location.hostname.endsWith('.github.io') && location.pathname.split('/')[1]
+              ? location.pathname.split('/')[1] : 'creaciones';
+const CARPETA = 'creaciones';
+
+const $ = s => document.querySelector(s);
+let todas = [], etiquetaActiva = null;
+
+const bonito = s => s.replace(/\.html?$/i,'').replace(/[-_]+/g,' ').replace(/^\w/, c => c.toUpperCase());
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function listar(){
+  // API de GitHub: lista el contenido de la carpeta
+  const r = await fetch(`https://api.github.com/repos/${DUENO}/${REPO}/contents/${CARPETA}`);
+  if (!r.ok) throw new Error('GitHub respondió ' + r.status);
+  const items = await r.json();
+  return items
+    .filter(it => !/^[_.]/.test(it.name))
+    .filter(it => it.type === 'dir' || /\.html?$/i.test(it.name))
+    .map(it => ({ nombre: it.name, tipo: it.type }));
+}
+
+async function detalle(it){
+  const base = `${CARPETA}/${it.nombre}`;
+  const obra = { id: it.nombre, url: it.tipo === 'dir' ? base + '/' : base,
+                 titulo: bonito(it.nombre), descripcion:'', fecha:'', etiquetas:[], portada:null };
+  if (it.tipo === 'dir'){
+    try{
+      const r = await fetch(base + '/info.json', {cache:'no-store'});
+      if (r.ok){
+        const d = await r.json();
+        Object.assign(obra, {
+          titulo: d.titulo || obra.titulo,
+          descripcion: d.descripcion || '',
+          fecha: d.fecha || '',
+          etiquetas: d.etiquetas || [],
+          portada: d.portada ? `${base}/${d.portada}` : null,
+          url: d.abrir ? `${base}/${d.abrir}` : obra.url,
+          vistaViva: d.vista_viva !== false
+        });
+      }
+    }catch(e){}
+  }
+  return obra;
+}
+
+function tarjeta(o){
+  const vista = o.portada
+    ? `<img src="${esc(o.portada)}" alt="" loading="lazy">`
+    : (o.vistaViva === false
+        ? `<div class="vacia">${esc(o.titulo[0] || '·')}</div>`
+        : `<iframe src="${esc(o.url)}" loading="lazy" tabindex="-1" aria-hidden="true" sandbox="allow-scripts allow-same-origin"></iframe>`);
+  return `<a class="obra" href="${esc(o.url)}">
+    <div class="vista">${vista}</div>
+    <div class="info">
+      <h2>${esc(o.titulo)}</h2>
+      ${o.descripcion ? `<p>${esc(o.descripcion)}</p>` : ''}
+      <div class="meta"><span class="etq">${o.etiquetas.map(esc).join(' · ')}</span><span>${esc(o.fecha)}</span></div>
+    </div></a>`;
+}
+
+function pintar(){
+  const q = $('#buscar').value.trim().toLowerCase();
+  const vis = todas.filter(o =>
+    (!etiquetaActiva || o.etiquetas.includes(etiquetaActiva)) &&
+    (!q || (o.titulo + ' ' + o.descripcion + ' ' + o.etiquetas.join(' ')).toLowerCase().includes(q)));
+  $('#galeria').innerHTML = vis.length ? vis.map(tarjeta).join('') : '<div class="estado">Nada por aquí todavía.</div>';
+}
+
+function chips(){
+  const etqs = [...new Set(todas.flatMap(o => o.etiquetas))].sort();
+  $('#chips').innerHTML = etqs.map(e => `<button class="chip" aria-pressed="false" data-e="${esc(e)}">${esc(e)}</button>`).join(' ');
+  $('#chips').onclick = ev => {
+    const b = ev.target.closest('.chip'); if (!b) return;
+    etiquetaActiva = etiquetaActiva === b.dataset.e ? null : b.dataset.e;
+    document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.e === etiquetaActiva));
+    pintar();
+  };
+}
+
+(async () => {
+  try{
+    const lista = await listar();
+    todas = await Promise.all(lista.map(detalle));
+    todas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'') || a.titulo.localeCompare(b.titulo,'es'));
+    $('#total').textContent = todas.length;
+    chips(); pintar();
+    $('#buscar').oninput = pintar;
+  }catch(e){
+    $('#galeria').innerHTML = `<div class="estado">No pude leer la lista de creaciones (${esc(e.message)}). Recarga en un momento.</div>`;
+  }
+})();
+</script>
+</body>
+</html>

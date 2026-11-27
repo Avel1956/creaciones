@@ -1,0 +1,9 @@
+{
+  "titulo": "Nombre bonito de la creación",
+  "descripcion": "Una o dos líneas sobre qué es y qué se puede hacer con ella.",
+  "fecha": "2026-11-27",
+  "etiquetas": ["simulación", "p5.js"],
+  "portada": "portada.png",
+  "abrir": "index.html",
+  "vista_viva": true
+}
