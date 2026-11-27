@@ -1,0 +1,10 @@
+{
+  "titulo": "Polirritmo sobrenatural",
+  "descripcion": "Péndulos que suenan cada uno a su propio ritmo con Tone.js. Clic para empezar.",
+  "fecha": "2024-08-24",
+  "etiquetas": [
+    "sonido",
+    "Tone.js"
+  ],
+  "portada": "portada.jpg"
+}

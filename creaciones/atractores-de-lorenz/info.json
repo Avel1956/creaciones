@@ -1,0 +1,10 @@
+{
+  "titulo": "Atractores de Lorenz",
+  "descripcion": "Tres atractores de Lorenz dibujándose a la vez, cada uno con su paleta. Clic para reiniciar.",
+  "fecha": "2024-09-16",
+  "etiquetas": [
+    "arte generativo",
+    "caos"
+  ],
+  "portada": "portada.jpg"
+}

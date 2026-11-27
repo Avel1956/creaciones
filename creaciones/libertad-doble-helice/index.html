@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Libertad: Doble Hélice de ADN Mejorada</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            display: block;
+        }
+        #paletteSelector {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="paletteSelector">
+        <label for="palette">Seleccionar Paleta:</label>
+        <select id="palette">
+            <option value="default">Predeterminada</option>
+            <option value="ethereal">Eterea</option>
+			<option value="misty">Misty</option>
+            <option value="cool">Fría</option>
+            <option value="nature">Natural</option>
+        </select>
+    </div>
+    <script>
+        // Configuración principal
+        const config = {
+            dnaCount: 20,
+            dnaSegments: 30,
+            dnaRadius: 20,
+            dnaWidth: 400,
+            rotationSpeed: 0.04,
+            colors: { start: '#1a5f7a', end: '#ff7f50' }, // Colores por defecto
+            backgroundColor: '#f0f0f0',
+            rungAmplitude: 9,
+            animationSpeed: 0.05,
+            sparkleChance: 0.01, // Probabilidad de que un punto brille
+            sparkleIntensity: 2 // Factor de brillo
+        };
+
+        const palettes = {
+            default: {
+                start: '#1a5f7a',
+                end: '#ff7f50',
+                background: '#f0f0f0'
+            },
+            warm: {
+                start: '#ff4500',
+                end: '#ffa500',
+                background: '#ffe4b5'
+            },
+            cool: {
+                start: '#4682b4',
+                end: '#00ced1',
+                background: '#f0f8ff'
+            },
+            nature: {
+                start: '#556b2f',
+                end: '#8fbc8f',
+                background: '#f5f5dc'
+            },
+			ethereal: {
+				start: '#e0e0e0', // Gris pálido, casi blanco
+				end: '#b0c4de', // Azul claro, como un cielo nublado
+				background: '#f8f8ff' // Blanco fantasmal
+			},
+			moonlit: {
+				start: '#c0c0c0', // Gris plateado, como la luz de la luna
+				end: '#333333', // Gris oscuro, casi negro
+				background: '#191970' // Azul profundo, como un cielo nocturno
+			},
+			misty: {
+				start: '#d3d3d3', // Gris claro, como la niebla
+				end: '#a9a9a9', // Gris medio, un poco más oscuro
+				background: '#f5f5f5' // Gris muy claro, casi blanco
+			},
+			lavender: {
+				start: '#e6e6fa', // Lavanda pálido
+				end: '#9370db', // Lavanda medio
+				background: '#fff0f5' // Rosa lavanda muy claro
+			},
+			opal: {
+				start: '#f0f8ff', // Azul claro, como un ópalo
+				end: '#faebd7', // Amarillo pálido, como un ópalo
+				background: '#ffffff' // Blanco puro
+			}
+		};
+        
+
+        let dnaHelices = []; // Declaración de la variable fuera de cualquier función
+
+        // Declaración de la clase DNAHelix
+        class DNAHelix {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.color = color;
+                this.phase = Math.random() * Math.PI * 2; // Fase inicial para la animación
+            }
+
+            update() {
+                this.rotation += config.rotationSpeed;
+                this.phase += config.animationSpeed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                for (let i = 0; i < config.dnaSegments; i++) {
+                    const segmentWidth = config.dnaWidth / config.dnaSegments;
+                    const x = i * segmentWidth - config.dnaWidth / 2;
+                    const angle = this.rotation + i * 0.5;
+
+                    // Calcular el brillo aleatorio
+                    const sparkle = Math.random() < config.sparkleChance ? config.sparkleIntensity : 1;
+
+                    // Dibujar las hebras con brillo aleatorio
+                    ctx.beginPath();
+                    ctx.arc(x, Math.cos(angle) * config.dnaRadius, 5 * sparkle, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color.strand1;
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.arc(x, Math.cos(angle + Math.PI) * config.dnaRadius, 5 * sparkle, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color.strand2;
+                    ctx.fill();
+
+                    // Calcular la animación para las líneas
+                    const offset = Math.sin(this.phase + i * 0.3) * config.rungAmplitude;
+
+                    // Dibujar los "peldaños" con animación
+                    ctx.beginPath();
+                    ctx.moveTo(x, Math.cos(angle) * config.dnaRadius);
+                    ctx.lineTo(x, Math.cos(angle + Math.PI) * config.dnaRadius + offset);
+                    ctx.strokeStyle = this.color.rungs;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        function applyPalette(paletteName) {
+            const palette = palettes[paletteName];
+            config.colors.start = palette.start;
+            config.colors.end = palette.end;
+            config.backgroundColor = palette.background;
+            createDNAHelices(); // Crear las hélices después de aplicar la paleta
+            resizeCanvas(); // Asegurar que se aplica el degradado correcto
+        }
+
+        document.getElementById('palette').addEventListener('change', function () {
+            applyPalette(this.value);
+        });
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, gradient;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+
+            // Crear un degradado lineal para las hélices
+            gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, config.colors.start);
+            gradient.addColorStop(1, config.colors.end);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function createDNAHelices() {
+            dnaHelices = []; // Resetear la lista de hélices
+            const spacing = height / (config.dnaCount + 1);
+            for (let i = 0; i < config.dnaCount; i++) {
+                const x = width / 2;
+                const y = spacing * (i + 1);
+                // Calcular colores con degradado
+                const t = i / (config.dnaCount - 1);
+                const strand1 = interpolateColor(config.colors.start, config.colors.end, t);
+                const strand2 = interpolateColor(config.colors.end, config.colors.start, t);
+                const rungs = interpolateColor(config.colors.start, config.colors.end, t * 0.5 + 0.25);
+                dnaHelices.push(new DNAHelix(x, y, { strand1, strand2, rungs }));
+            }
+        }
+
+        // Función para interpolar colores
+        function interpolateColor(color1, color2, factor) {
+            const c1 = hexToRgb(color1);
+            const c2 = hexToRgb(color2);
+            const r = Math.round(c1.r + (c2.r - c1.r) * factor);
+            const g = Math.round(c1.g + (c2.g - c1.g) * factor);
+            const b = Math.round(c1.b + (c2.b - c1.b) * factor);
+            return `rgb(${r},${g},${b})`;
+        }
+
+        // Función para convertir hex a RGB
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+            return { r, g, b };
+        }
+
+        function animate() {
+            ctx.fillStyle = config.backgroundColor;
+            ctx.fillRect(0, 0, width, height);
+
+            dnaHelices.forEach(helix => {
+                helix.update();
+                helix.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Aplicar paleta predeterminada al inicio y luego inicializar la animación
+        applyPalette('lavender');
+        animate();
+    </script>
+</body>
+</html>

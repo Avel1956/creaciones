@@ -1,0 +1,10 @@
+{
+  "titulo": "Anillos",
+  "descripcion": "Anillos concéntricos de puntos luminosos en three.js. Arrastra para orbitar la cámara.",
+  "fecha": "2025-05-06",
+  "etiquetas": [
+    "arte generativo",
+    "three.js"
+  ],
+  "portada": "portada.jpg"
+}

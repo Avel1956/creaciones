@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flor Etérea</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="florEterea"></canvas>
+    <script>
+        const canvas = document.getElementById('florEterea');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = 1080;
+        canvas.height = 1920;
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        let time = 0;
+
+        const config = {
+            petalCount: 40,
+            baseSize: 400,
+            sizeVariation: 100,
+            rotationSpeed: 0.1,
+            waveSpeed: 0.5
+        };
+
+        const palettes = [
+            {name: "Amanecer", colors: ['#FF9AA2', '#FFB7B2', '#FFDAC1', '#E2F0CB']},
+            {name: "Día", colors: ['#B5EAD7', '#C7CEEA', '#E2F0CB', '#FFDAC1']},
+            {name: "Atardecer", colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FDFFB6']},
+            {name: "Noche", colors: ['#845EC2', '#D65DB1', '#FF6F91', '#FF9671']}
+        ];
+
+        function interpolateColor(color1, color2, factor) {
+            const result = color1.slice();
+            for (let i = 0; i < 3; i++) {
+                result[i] = Math.round(result[i] + factor * (color2[i] - result[i]));
+            }
+            return result;
+        }
+
+        function getColor(progress) {
+            const totalColors = palettes.reduce((acc, palette) => acc + palette.colors.length, 0);
+            const targetIndex = progress * totalColors;
+            let currentIndex = 0;
+            
+            for (let i = 0; i < palettes.length; i++) {
+                const palette = palettes[i];
+                for (let j = 0; j < palette.colors.length; j++) {
+                    if (currentIndex <= targetIndex && targetIndex < currentIndex + 1) {
+                        const color1 = hexToRgb(palette.colors[j]);
+                        const color2 = hexToRgb(palette.colors[(j + 1) % palette.colors.length]);
+                        const localProgress = targetIndex - currentIndex;
+                        const interpolated = interpolateColor(color1, color2, localProgress);
+                        return `rgb(${interpolated[0]}, ${interpolated[1]}, ${interpolated[2]})`;
+                    }
+                    currentIndex++;
+                }
+            }
+            
+            return palettes[0].colors[0];
+        }
+
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+        }
+
+        function drawPetal(x, y, size, angle, color, alpha) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(size / 2, size / 2, size, 0);
+            ctx.quadraticCurveTo(size / 2, -size / 2, 0, 0);
+            ctx.fillStyle = color;
+            ctx.globalAlpha = alpha;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawFlower(progress) {
+            const waveOffset = Math.sin(time * config.waveSpeed) * config.sizeVariation;
+
+            for (let i = 0; i < config.petalCount; i++) {
+                const angle = (i / config.petalCount) * Math.PI * 2;
+                const wavePhase = (i / config.petalCount) * Math.PI * 2;
+                const size = config.baseSize + Math.sin(time * config.waveSpeed + wavePhase) * config.sizeVariation;
+                const x = centerX + Math.cos(angle) * waveOffset;
+                const y = centerY + Math.sin(angle) * waveOffset;
+                const rotation = angle + time * config.rotationSpeed;
+                const colorProgress = (progress + i / config.petalCount) % 1;
+                const color = getColor(colorProgress);
+                const alpha = 0.6 + Math.sin(time * config.waveSpeed + wavePhase) * 0.2;
+
+                drawPetal(x, y, size, rotation, color, alpha);
+            }
+        }
+
+        function drawCenter() {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 20, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fill();
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const progress = (time % (Math.PI * 20)) / (Math.PI * 20);
+            drawFlower(progress);
+            drawCenter();
+
+            time += 0.02;
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        function resizeCanvas() {
+            const scale = Math.min(window.innerWidth / canvas.width, window.innerHeight / canvas.height);
+            canvas.style.transform = `scale(${scale})`;
+            canvas.style.transformOrigin = 'center';
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
+</body>
+</html>

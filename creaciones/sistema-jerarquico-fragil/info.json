@@ -1,0 +1,10 @@
+{
+  "titulo": "Sistema jerárquico frágil",
+  "descripcion": "Un sistema de nodos concéntricos con d3 que se tensa y se reacomoda.",
+  "fecha": "2024-07-31",
+  "etiquetas": [
+    "arte generativo",
+    "d3"
+  ],
+  "portada": "portada.jpg"
+}

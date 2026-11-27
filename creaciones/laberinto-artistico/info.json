@@ -1,0 +1,9 @@
+{
+  "titulo": "Laberinto artístico",
+  "descripcion": "Un laberinto que se va construyendo y clasificando celda por celda.",
+  "fecha": "2024-08-03",
+  "etiquetas": [
+    "arte generativo"
+  ],
+  "portada": "portada.jpg"
+}

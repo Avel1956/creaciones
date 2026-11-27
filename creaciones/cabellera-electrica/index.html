@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cabellera eléctrica persistente</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="controls">
+        <label for="lengthSlider">Longitud: </label>
+        <input type="range" id="lengthSlider" min="200" max="1000" value="600">
+        <span id="lengthValue">600</span>
+    </div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const lengthSlider = document.getElementById('lengthSlider');
+        const lengthValue = document.getElementById('lengthValue');
+
+        let width, height;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const electricColors = [
+            { h: 275, s: 100, l: 50 }, // Púrpura eléctrico
+            { h: 180, s: 100, l: 50 }, // Cian eléctrico
+            { h: 120, s: 100, l: 50 }, // Verde neón
+            { h: 60, s: 100, l: 50 },  // Amarillo eléctrico
+            { h: 0, s: 100, l: 50 }    // Rojo neón
+        ];
+
+        class ElectricStrand {
+            constructor(startY) {
+                this.init(startY);
+            }
+
+            init(startY) {
+                this.x = Math.random() * width;
+                this.y = startY;
+                this.targetLength = Math.random() * 200 + parseInt(lengthSlider.value);
+                this.currentLength = 0;
+                this.growthRate = Math.random() * 2 + 1;
+                this.amplitude = Math.random() * 50 + 40;
+                this.frequency = Math.random() * 0.05 + 0.02;
+                this.phase = Math.random() * Math.PI * 2;
+                this.thickness = Math.random() * 1 + 0.5;
+                this.color = electricColors[Math.floor(Math.random() * electricColors.length)];
+                this.glowIntensity = Math.random() * 10 + 5;
+            }
+
+            update(time) {
+                if (this.currentLength < this.targetLength) {
+                    this.currentLength += this.growthRate;
+                }
+                this.phase += 0.05;
+            }
+
+            draw(time) {
+                const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y - this.currentLength);
+                gradient.addColorStop(0, `hsla(${this.color.h}, ${this.color.s}%, ${this.color.l}%, 1)`);
+                gradient.addColorStop(1, `hsla(${this.color.h}, ${this.color.s}%, ${this.color.l}%, 0)`);
+
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = this.thickness;
+                ctx.shadowColor = `hsla(${this.color.h}, ${this.color.s}%, ${this.color.l}%, 0.8)`;
+                ctx.shadowBlur = this.glowIntensity;
+
+                ctx.beginPath();
+                for (let i = 0; i < this.currentLength; i += 2) {
+                    const x = this.x + Math.sin((time + this.phase + i * this.frequency) * 0.3) * this.amplitude;
+                    const y = this.y - i;
+                    ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        const strandCount = 150;
+        const strands = Array(strandCount).fill().map((_, index) => 
+            new ElectricStrand(height * (1 + index / strandCount))
+        );
+
+        let time = 0;
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            time += 0.016;
+
+            strands.forEach(strand => {
+                strand.update(time);
+                strand.draw(time);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        lengthSlider.addEventListener('input', function() {
+            lengthValue.textContent = this.value;
+            strands.forEach((strand, index) => strand.init(height * (1 + index / strandCount)));
+        });
+    </script>
+</body>
+</html>

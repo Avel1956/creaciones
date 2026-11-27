@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Girasol Cósmico Etéreo Centrado</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="sunflowerCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('sunflowerCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const size = Math.min(window.innerWidth, window.innerHeight);
+        canvas.width = size;
+        canvas.height = size;
+
+        const centerX = size / 2;
+        const centerY = size / 2;
+        const petalCount = 18;
+        const petalLength = size * 0.4;
+
+        let time = 0;
+        let isInverted = false;
+
+        function getColor(hue, lightness, alpha) {
+            return `hsla(${hue}, 100%, ${isInverted ? 100 - lightness : lightness}%, ${alpha})`;
+        }
+
+        function drawMagneticLine(startX, startY, endX, endY, intensity, lineIndex) {
+            const points = 200;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+
+            for (let i = 0; i <= points; i++) {
+                const t = i / points;
+                const x = startX + (endX - startX) * t;
+                const y = startY + (endY - startY) * t;
+                
+                const waveX = Math.sin(t * Math.PI * 6 + time + lineIndex) * intensity;
+                const waveY = Math.cos(t * Math.PI * 5 + time * 1.2 + lineIndex) * intensity;
+                
+                ctx.lineTo(x + waveX, y + waveY);
+            }
+
+            const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+            gradient.addColorStop(0, getColor((time * 50 + lineIndex * 20) % 360, 70, 0.6));
+            gradient.addColorStop(1, getColor((time * 50 + lineIndex * 20 + 180) % 360, 70, 0));
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+        }
+
+        function drawPetal(angle) {
+            const startX = centerX + Math.cos(angle) * 10;
+            const startY = centerY + Math.sin(angle) * 10;
+            const endX = centerX + Math.cos(angle) * petalLength;
+            const endY = centerY + Math.sin(angle) * petalLength;
+
+            for (let i = 0; i < 12; i++) {
+                const intensity = 15 + Math.sin(time * 2 + i) * 8;
+                drawMagneticLine(startX, startY, endX, endY, intensity, i);
+            }
+        }
+
+        function drawEtherealCenter() {
+            const centerRadius = size * 0.05;
+            for (let i = 0; i < 200; i++) {
+                const angle = (i / 200) * Math.PI * 2 + time * 0.5;
+                const radius = centerRadius * Math.sqrt(Math.random());
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = getColor(0, 60, Math.random() * 0.3);
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = isInverted ? '#FFFFFF' : '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 100; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 0.8;
+                ctx.fillStyle = getColor(0, 100, Math.random() * 0.7);
+                ctx.fillRect(x, y, size, size);
+            }
+        }
+
+        function animate() {
+            time += 0.005;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBackground();
+
+            for (let i = 0; i < petalCount; i++) {
+                const angle = (i / petalCount) * Math.PI * 2 + time * 0.1;
+                drawPetal(angle);
+            }
+
+            drawEtherealCenter();
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('keydown', function(e) {
+            if (e.code === 'Space') {
+                isInverted = !isInverted;
+            }
+        });
+
+        animate();
+    </script>
+</body>
+</html>

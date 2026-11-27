@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rings Animation</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000000;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Camera position
+        camera.position.z = 50;
+
+        // Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x111111);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1.5, 100);
+        pointLight.position.set(5, 5, 20);
+        scene.add(pointLight);
+
+        // Post processing setup
+        const renderScene = new THREE.RenderPass(scene, camera);
+        const bloomPass = new THREE.UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            2.0,    // strength
+            0.3,    // radius
+            0.2     // threshold
+        );
+        
+        const composer = new THREE.EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // Ring System Class
+        class RingSystem {
+            constructor() {
+                this.rings = [];
+                this.connections = [];
+                this.numRings = 12;
+                this.createRings();
+            }
+
+            createRings() {
+                for (let i = 0; i < this.numRings; i++) {
+                    const radius = 3 + i * 2.5;
+                    const points = 24 + i * 8;
+                    const ring = this.createRing(radius, points, i);
+                    this.rings.push(ring);
+                    scene.add(ring);
+                }
+                this.createConnections();
+            }
+
+            createRing(radius, numPoints, ringIndex) {
+                const geometry = new THREE.BufferGeometry();
+                const positions = [];
+                const colors = [];
+
+                for (let i = 0; i < numPoints; i++) {
+                    const angle = (i / numPoints) * Math.PI * 2;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+                    positions.push(x, y, 0);
+
+                    // Monochromatic color scheme
+                    const brightness = 0.3 + (ringIndex / this.numRings) * 0.7;
+                    colors.push(brightness, brightness, brightness);
+                }
+
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+                const material = new THREE.PointsMaterial({
+                    size: 0.2 + (ringIndex / this.numRings) * 0.2,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.9,
+                });
+
+                return new THREE.Points(geometry, material);
+            }
+
+            createConnections() {
+                for (let i = 0; i < this.rings.length - 1; i++) {
+                    const ring1 = this.rings[i];
+                    const ring2 = this.rings[i + 1];
+                    const positions1 = ring1.geometry.attributes.position.array;
+                    const positions2 = ring2.geometry.attributes.position.array;
+
+                    const lineGeometry = new THREE.BufferGeometry();
+                    const lineMaterial = new THREE.LineBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.1
+                    });
+
+                    const points = [];
+                    for (let j = 0; j < positions1.length; j += 3) {
+                        points.push(
+                            new THREE.Vector3(positions1[j], positions1[j + 1], positions1[j + 2]),
+                            new THREE.Vector3(positions2[j], positions2[j + 1], positions2[j + 2])
+                        );
+                    }
+
+                    lineGeometry.setFromPoints(points);
+                    const line = new THREE.LineSegments(lineGeometry, lineMaterial);
+                    this.connections.push(line);
+                    scene.add(line);
+                }
+            }
+
+            update(time) {
+                // Rotate rings in alternating directions
+                this.rings.forEach((ring, index) => {
+                    const direction = index % 2 === 0 ? 1 : -1;
+                    ring.rotation.z = time * 0.3 * direction * (1 - index * 0.03);
+                });
+
+                // Update connections
+                this.connections.forEach((connection, index) => {
+                    const ring1 = this.rings[index];
+                    const ring2 = this.rings[index + 1];
+                    
+                    const positions1 = ring1.geometry.attributes.position.array;
+                    const positions2 = ring2.geometry.attributes.position.array;
+                    
+                    const points = [];
+                    for (let i = 0; i < positions1.length; i += 3) {
+                        const point1 = new THREE.Vector3(positions1[i], positions1[i + 1], positions1[i + 2]);
+                        const point2 = new THREE.Vector3(positions2[i], positions2[i + 1], positions2[i + 2]);
+                        
+                        point1.applyMatrix4(ring1.matrixWorld);
+                        point2.applyMatrix4(ring2.matrixWorld);
+                        
+                        points.push(point1, point2);
+                    }
+                    
+                    connection.geometry.setFromPoints(points);
+                });
+            }
+        }
+
+        // Create ring system
+        const ringSystem = new RingSystem();
+
+        // Animation loop
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const time = clock.getElapsedTime();
+            
+            ringSystem.update(time);
+            controls.update();
+            
+            composer.render();
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>

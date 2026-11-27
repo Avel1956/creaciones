@@ -1,0 +1,9 @@
+{
+  "titulo": "Malla geométrica mutante",
+  "descripcion": "Una red tridimensional de nodos y aristas que se deforma y rota sin parar.",
+  "fecha": "2024-08-16",
+  "etiquetas": [
+    "arte generativo"
+  ],
+  "portada": "portada.jpg"
+}

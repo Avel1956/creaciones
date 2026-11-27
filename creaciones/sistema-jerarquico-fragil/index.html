@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualización de Sistema Jerárquico Frágil</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #1a0000; 
+        }
+        #visualization { 
+            width: 100vw; 
+            height: 100vh; 
+        }
+    </style>
+</head>
+<body>
+    <div id="visualization"></div>
+    <script>
+        const params = {
+            nodeSize: 3,
+            linkDistance: 15,
+            rotationSpeed: 0.00002,
+            pulseFrequency: 3000,
+            fadeOutDuration: 5000,
+            colorScheme: ['#ff4d4d', '#ff6666', '#ff8080'],
+            networkRadius: 0,
+            branchingFactor: 4,
+            maxDepth: 6
+        };
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        params.networkRadius = Math.min(width, height) * 0.4;
+
+        const svg = d3.select("#visualization")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        svg.append("rect")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("fill", "#1a0000");
+
+        function generateNetwork(startAngle, groupId) {
+            let nodes = [];
+            let links = [];
+
+            function addNode(depth, angle, parentId) {
+                const id = `${groupId}-${nodes.length}`;
+                const radius = (params.networkRadius / params.maxDepth) * depth;
+                nodes.push({id, group: groupId, depth, angle, radius});
+                if (parentId) links.push({source: parentId, target: id});
+                return id;
+            }
+
+            function generateBranch(depth, angle, parentId) {
+                if (depth > params.maxDepth) return;
+                const id = addNode(depth, angle, parentId);
+                for (let i = 0; i < params.branchingFactor; i++) {
+                    const newAngle = angle + (i - (params.branchingFactor - 1) / 2) * (Math.PI / (depth + 1));
+                    generateBranch(depth + 1, newAngle, id);
+                }
+            }
+
+            generateBranch(1, startAngle, null);
+            return {nodes, links};
+        }
+
+        function createNetworkData() {
+            let allNodes = [{id: "central", group: -1, depth: 0, angle: 0, radius: 0}];
+            let allLinks = [];
+
+            for (let i = 0; i < 3; i++) {
+                const startAngle = (2 * Math.PI * i) / 3;
+                const {nodes, links} = generateNetwork(startAngle, i);
+                allNodes = allNodes.concat(nodes);
+                allLinks = allLinks.concat(links);
+                allLinks.push({source: "central", target: nodes[0].id});
+            }
+
+            return {nodes: allNodes, links: allLinks};
+        }
+
+        const data = createNetworkData();
+
+        const simulation = d3.forceSimulation(data.nodes)
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(params.linkDistance))
+            .force("charge", d3.forceManyBody().strength(-10))
+            .force("center", d3.forceCenter(width / 2, height / 2));
+
+        const link = svg.append("g")
+            .selectAll("line")
+            .data(data.links)
+            .join("line")
+            .attr("stroke", d => d.source.id === "central" || d.target.id === "central" ? "#ff6666" : "#660000")
+            .attr("stroke-opacity", 0.8)
+            .attr("stroke-width", d => d.source.id === "central" || d.target.id === "central" ? 2 : 1);
+
+        const node = svg.append("g")
+            .selectAll("circle")
+            .data(data.nodes)
+            .join("circle")
+            .attr("r", d => d.id === "central" ? params.nodeSize * 2 : params.nodeSize * (1 - d.depth / (params.maxDepth + 1)))
+            .attr("fill", d => d.id === "central" ? "#ff3333" : params.colorScheme[d.group]);
+
+        function ticked() {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y);
+        }
+
+        simulation.on("tick", ticked);
+
+        function rotate() {
+            const centerX = width / 2, centerY = height / 2;
+            const time = Date.now() * params.rotationSpeed;
+            
+            node.each(d => {
+                if (d.id !== "central") {
+                    const rotatedAngle = d.angle + time;
+                    d.x = centerX + Math.cos(rotatedAngle) * d.radius;
+                    d.y = centerY + Math.sin(rotatedAngle) * d.radius;
+                } else {
+                    d.x = centerX;
+                    d.y = centerY;
+                }
+            });
+            
+            ticked();
+            requestAnimationFrame(rotate);
+        }
+
+        rotate();
+
+        function pulse() {
+            const centralNode = node.filter(d => d.id === "central");
+            centralNode.transition()
+                .duration(500)
+                .attr("r", params.nodeSize * 4)
+                .attr("fill", "#ffd700")  // Color dorado
+                .transition()
+                .duration(500)
+                .attr("r", params.nodeSize * 2)
+                .attr("fill", "#ff3333");
+
+            setTimeout(() => {
+                node.filter(d => d.id !== "central")
+                    .transition()
+                    .duration(750)
+                    .attr("r", d => params.nodeSize * (1 - d.depth / (params.maxDepth + 1)) * 1.5)
+                    .attr("fill", "#ffd700")  // Color dorado
+                    .transition()
+                    .duration(750)
+                    .attr("r", d => params.nodeSize * (1 - d.depth / (params.maxDepth + 1)))
+                    .attr("fill", d => params.colorScheme[d.group]);
+            }, 500);
+        }
+
+        setInterval(pulse, params.pulseFrequency);
+
+        setTimeout(() => {
+            const centralNode = node.filter(d => d.id === "central");
+            centralNode.transition()
+                .duration(1000)
+                .attr("r", 0)
+                .remove();
+
+            link.filter(d => d.source.id === "central" || d.target.id === "central")
+                .transition()
+                .duration(1000)
+                .attr("stroke-opacity", 0)
+                .remove();
+
+            node.filter(d => d.id !== "central")
+                .transition()
+                .duration(params.fadeOutDuration)
+                .attr("r", 0)
+                .attr("fill-opacity", 0);
+
+            link.filter(d => d.source.id !== "central" && d.target.id !== "central")
+                .transition()
+                .duration(params.fadeOutDuration)
+                .attr("stroke-opacity", 0);
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Botella de Klein con Bordes Luminosos - Múltiples Paletas</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">Presiona ESPACIO para cambiar la paleta</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const PALETTES = [
+            { bottle: 0x001a33, edge: 0x00ffff }, // Azul oscuro y cian
+            { bottle: 0x1a0033, edge: 0xff00ff }, // Púrpura oscuro y magenta
+            { bottle: 0x331a00, edge: 0xffff00 }, // Marrón oscuro y amarillo
+            { bottle: 0x003311, edge: 0x00ff00 }, // Verde oscuro y verde brillante
+            { bottle: 0x330011, edge: 0xff0066 }  // Burdeos y rosa
+        ];
+
+        const PARAMS = {
+            ROTATION_SPEED_X: 0.2,
+            ROTATION_SPEED_Y: 0.1,
+            PULSE_SPEED: 1.5,
+            EDGE_BRIGHTNESS: 0.7
+        };
+
+        let scene, camera, renderer, kleinBottle, edges;
+        let currentPaletteIndex = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0x444444);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+            pointLight.position.set(0, 0, 20);
+            scene.add(pointLight);
+
+            createKleinBottle();
+            createLuminousEdges();
+
+            camera.position.z = 20;
+        }
+
+        function createKleinBottle() {
+            const kleinBottleGeometry = new THREE.ParametricGeometry((u, v, target) => {
+                u *= Math.PI * 2;
+                v *= Math.PI * 2;
+                
+                const x = 3 * Math.cos(u) * (1 + Math.sin(u)) + (2 * (1 - Math.cos(u) / 2)) * Math.cos(u) * Math.cos(v);
+                const z = 8 * Math.sin(u) + (2 * (1 - Math.cos(u) / 2)) * Math.sin(u) * Math.cos(v);
+                const y = (2 * (1 - Math.cos(u) / 2)) * Math.sin(v);
+                
+                target.set(x, y, z);
+            }, 100, 100);
+            
+            const kleinBottleMaterial = new THREE.MeshPhongMaterial({
+                color: PALETTES[currentPaletteIndex].bottle,
+                side: THREE.DoubleSide,
+                shininess: 50
+            });
+            kleinBottle = new THREE.Mesh(kleinBottleGeometry, kleinBottleMaterial);
+            scene.add(kleinBottle);
+        }
+
+        function createLuminousEdges() {
+            const edgesGeometry = new THREE.EdgesGeometry(kleinBottle.geometry);
+            const edgesMaterial = new THREE.LineBasicMaterial({ 
+                color: PALETTES[currentPaletteIndex].edge,
+                transparent: true,
+                opacity: PARAMS.EDGE_BRIGHTNESS
+            });
+            edges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+            kleinBottle.add(edges);
+        }
+
+        function updateEdges(time) {
+            const brightness = PARAMS.EDGE_BRIGHTNESS + 0.3 * Math.sin(time * PARAMS.PULSE_SPEED);
+            edges.material.opacity = brightness;
+        }
+
+        function changePalette() {
+            currentPaletteIndex = (currentPaletteIndex + 1) % PALETTES.length;
+            kleinBottle.material.color.setHex(PALETTES[currentPaletteIndex].bottle);
+            edges.material.color.setHex(PALETTES[currentPaletteIndex].edge);
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            
+            time *= 0.001;
+            
+            kleinBottle.rotation.x = time * PARAMS.ROTATION_SPEED_X;
+            kleinBottle.rotation.y = time * PARAMS.ROTATION_SPEED_Y;
+            
+            updateEdges(time);
+            
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                changePalette();
+            }
+        });
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

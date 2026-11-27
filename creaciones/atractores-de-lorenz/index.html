@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La última misión - Atractores de Lorenz</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            touch-action: manipulation;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Parámetros ajustables
+        const params = {
+            numParticles: 50,
+            particleSize: 3,
+            fadeSpeed: 0.08,
+            energyBoost: 2,
+            boostDuration: 200, // frames
+            vortexSpeed: 5,
+            vortexTurnSpeed: 0.02,
+            interactionRadius: 350,
+            lorenz: {
+                sigma: 10,
+                rho: 28,
+                beta: 8 / 3,
+                dt: 0.01
+            }
+        };
+
+        // Paletas de colores
+        const palettes = [
+            ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FDCB6E'], // Vibrante
+            ['#2C3E50', '#E74C3C', '#ECF0F1', '#3498DB'], // Contrastante
+            ['#8E44AD', '#16A085', '#F39C12', '#2980B9'], // Joya
+            ['#1ABC9C', '#3498DB', '#9B59B6', '#F1C40F'], // Pastel
+            ['#34495E', '#E67E22', '#27AE60', '#95A5A6']  // Tierra
+        ];
+
+        let currentPaletteIndex = 0;
+
+        class Particle {
+            constructor(x, y, z, color) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+                this.color = color;
+                this.history = [];
+            }
+
+            update(vortex) {
+                const {sigma, rho, beta, dt} = params.lorenz;
+                let dx = sigma * (this.y - this.x) * dt;
+                let dy = (this.x * (rho - this.z) - this.y) * dt;
+                let dz = (this.x * this.y - beta * this.z) * dt;
+
+                this.x += dx * vortex.speed;
+                this.y += dy * vortex.speed;
+                this.z += dz * vortex.speed;
+
+                // Guardar historial para efecto de estela
+                this.history.push({x: this.x, y: this.y, z: this.z});
+                if (this.history.length > 10) {
+                    this.history.shift();
+                }
+            }
+
+            draw(vortex) {
+                const scale = 10;
+                const offsetX = vortex.position.x;
+                const offsetY = vortex.position.y;
+
+                ctx.beginPath();
+                ctx.arc(
+                    offsetX + this.x * scale,
+                    offsetY + this.z * scale,
+                    params.particleSize,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fillStyle = this.color;
+                ctx.fill();
+
+                // Dibujar estela
+                ctx.beginPath();
+                for (let i = this.history.length - 1; i >= 0; i--) {
+                    const point = this.history[i];
+                    ctx.lineTo(
+                        offsetX + point.x * scale,
+                        offsetY + point.z * scale
+                    );
+                }
+                ctx.strokeStyle = this.color;
+                ctx.stroke();
+            }
+        }
+
+        class Vortex {
+            constructor(x, y, color) {
+                this.position = {x: x, y: y};
+                this.velocity = {
+                    x: (Math.random() - 0.5) * params.vortexSpeed,
+                    y: (Math.random() - 0.5) * params.vortexSpeed
+                };
+                this.color = color;
+                this.particles = [];
+                this.speed = 1;
+                this.boostTimer = 0;
+                this.turnTimer = 0;
+
+                for (let i = 0; i < params.numParticles; i++) {
+                    const x0 = Math.random() * 20 - 10;
+                    const y0 = Math.random() * 20 - 10;
+                    const z0 = Math.random() * 20 - 10;
+                    this.particles.push(new Particle(x0, y0, z0, color));
+                }
+            }
+
+            update() {
+                // Movimiento del vórtice
+                this.position.x += this.velocity.x;
+                this.position.y += this.velocity.y;
+
+                // Rebote en los bordes
+                if (this.position.x < 0 || this.position.x > width) {
+                    this.velocity.x *= -1;
+                }
+                if (this.position.y < 0 || this.position.y > height) {
+                    this.velocity.y *= -1;
+                }
+
+                // Cambio aleatorio de dirección
+                if (--this.turnTimer <= 0) {
+                    this.velocity.x += (Math.random() - 0.5) * params.vortexTurnSpeed;
+                    this.velocity.y += (Math.random() - 0.5) * params.vortexTurnSpeed;
+                    // Normalizar la velocidad
+                    const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+                    this.velocity.x = (this.velocity.x / speed) * params.vortexSpeed;
+                    this.velocity.y = (this.velocity.y / speed) * params.vortexSpeed;
+                    this.turnTimer = Math.random() * 100 + 50;
+                }
+
+                // Actualizar partículas
+                this.particles.forEach(particle => particle.update(this));
+
+                // Reducir temporizador de energía
+                if (this.boostTimer > 0) {
+                    this.boostTimer--;
+                    if (this.boostTimer === 0) {
+                        this.speed = 1;
+                    }
+                }
+            }
+
+            draw() {
+                this.particles.forEach(particle => particle.draw(this));
+            }
+
+            energize() {
+                this.speed = params.energyBoost;
+                this.boostTimer = params.boostDuration;
+            }
+        }
+
+        const vortices = [
+            new Vortex(width * 0.25, height * 0.25, palettes[currentPaletteIndex][0]),
+            new Vortex(width * 0.75, height * 0.25, palettes[currentPaletteIndex][1]),
+            new Vortex(width * 0.25, height * 0.75, palettes[currentPaletteIndex][2]),
+            new Vortex(width * 0.75, height * 0.75, palettes[currentPaletteIndex][3])
+        ];
+
+        function checkInteractions() {
+            for (let i = 0; i < vortices.length; i++) {
+                for (let j = i + 1; j < vortices.length; j++) {
+                    const v1 = vortices[i];
+                    const v2 = vortices[j];
+                    const dx = v1.position.x - v2.position.x;
+                    const dy = v1.position.y - v2.position.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < params.interactionRadius) {
+                        v1.energize();
+                        v2.energize();
+                        // Repulsión suave
+                        const angle = Math.atan2(dy, dx);
+                        const force = (params.interactionRadius - distance) / params.interactionRadius;
+                        v1.velocity.x += Math.cos(angle) * force * 0.1;
+                        v1.velocity.y += Math.sin(angle) * force * 0.1;
+                        v2.velocity.x -= Math.cos(angle) * force * 0.1;
+                        v2.velocity.y -= Math.sin(angle) * force * 0.1;
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = `rgba(0, 0, 0, ${params.fadeSpeed})`;
+            ctx.fillRect(0, 0, width, height);
+
+            vortices.forEach(vortex => {
+                vortex.update();
+                vortex.draw();
+            });
+
+            checkInteractions();
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // Cambiar paleta con un toque
+        canvas.addEventListener('click', () => {
+            currentPaletteIndex = (currentPaletteIndex + 1) % palettes.length;
+            vortices.forEach((vortex, index) => {
+                vortex.color = palettes[currentPaletteIndex][index % palettes[currentPaletteIndex].length];
+                vortex.particles.forEach(particle => {
+                    particle.color = vortex.color;
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Plasticidad de la Memoria - Versión Mejorada</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: none;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background-color: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            backdrop-filter: blur(5px);
+            z-index: 10;
+            transition: opacity 0.5s;
+        }
+        .controls.hidden {
+            opacity: 0;
+        }
+        .control-btn {
+            background: none;
+            border: 2px solid white;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            outline: none;
+        }
+        .control-btn:hover {
+            background-color: white;
+            color: black;
+        }
+        .help-text {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background-color: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 500px;
+            backdrop-filter: blur(5px);
+            transition: opacity 1.5s;
+        }
+        .help-text.hidden {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="helpText" class="help-text">
+        Explora la plasticidad de la memoria. Mueve el ratón para influir en los recuerdos.
+        <br>Presiona H para ocultar/mostrar este texto.
+    </div>
+    
+    <div id="controls" class="controls">
+        <button class="control-btn" id="paletteBtn" title="Cambiar paleta de colores">P</button>
+        <button class="control-btn" id="modeBtn" title="Cambiar modo de memoria">M</button>
+        <button class="control-btn" id="resetBtn" title="Reiniciar">R</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const controls = document.getElementById('controls');
+        const helpText = document.getElementById('helpText');
+        const paletteBtn = document.getElementById('paletteBtn');
+        const modeBtn = document.getElementById('modeBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        let width, height;
+        let mouseX = 0, mouseY = 0;
+        let mouseRadius = 150;
+        let mouseInfluence = true;
+        let hideTimeout;
+        let showControls = true;
+        let showHelp = true;
+        
+        // Modos de memoria
+        const memoryModes = [
+            { name: "Reciente", fadeSpeed: 0.02, moveSpeed: 0.6, minLength: 100, maxLength: 250 },
+            { name: "Profunda", fadeSpeed: 0.01, moveSpeed: 0.3, minLength: 150, maxLength: 350 },
+            { name: "Fragmentada", fadeSpeed: 0.03, moveSpeed: 0.8, minLength: 50, maxLength: 150 }
+        ];
+        
+        let currentModeIndex = 0;
+
+        // Configuración
+        let config = {
+            fiberCount: 250,
+            fadeSpeed: memoryModes[currentModeIndex].fadeSpeed,
+            moveSpeed: memoryModes[currentModeIndex].moveSpeed,
+            angleChangeSpeed: 0.015,
+            minLength: memoryModes[currentModeIndex].minLength,
+            maxLength: memoryModes[currentModeIndex].maxLength,
+            minThickness: 1,
+            maxThickness: 4
+        };
+
+        // Paletas de colores mejoradas con nombres
+        const palettes = [
+            { 
+                name: "Recuerdos Cálidos",
+                colors: ['#D63230', '#F39237', '#FBFFA8', '#71DDE2', '#031D44']
+            },
+            { 
+                name: "Memoria Vibrante",
+                colors: ['#540D6E', '#EE4266', '#FFD23F', '#3BCEAC', '#0EAD69']
+            },
+            { 
+                name: "Recuerdos Serenos",
+                colors: ['#2C3E50', '#E74C3C', '#ECF0F1', '#3498DB', '#2980B9']
+            },
+            { 
+                name: "Memoria Contrastante",
+                colors: ['#FFD700', '#000000', '#FFFFFF', '#FF4500', '#1E90FF']
+            },
+            { 
+                name: "Reflexiones Suaves",
+                colors: ['#50514F', '#F25F5C', '#FFE066', '#247BA0', '#70C1B3']
+            }
+        ];
+
+        let currentPaletteIndex = 0;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Seguimiento del ratón
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            // Mostrar controles al mover el ratón
+            controls.classList.remove('hidden');
+            clearTimeout(hideTimeout);
+            
+            if (showControls) {
+                hideTimeout = setTimeout(() => {
+                    controls.classList.add('hidden');
+                }, 3000);
+            }
+        });
+        
+        // Ocultar controles después de unos segundos
+        hideTimeout = setTimeout(() => {
+            if (showControls) {
+                controls.classList.add('hidden');
+            }
+        }, 4000);
+
+        class Fiber {
+            constructor() {
+                this.reset();
+                this.age = Math.random() * 100; // Edad inicial aleatoria
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.length = Math.random() * (config.maxLength - config.minLength) + config.minLength;
+                this.angle = Math.random() * Math.PI * 2;
+                this.angleSpeed = (Math.random() - 0.5) * config.angleChangeSpeed;
+                this.color = palettes[currentPaletteIndex].colors[Math.floor(Math.random() * palettes[currentPaletteIndex].colors.length)];
+                this.thickness = Math.random() * (config.maxThickness - config.minThickness) + config.minThickness;
+                this.speed = config.moveSpeed * (0.5 + Math.random() * 0.5); // Velocidad ligeramente variable
+                this.age = 0;
+            }
+
+            update() {
+                // Incrementar la edad
+                this.age += 0.1;
+                
+                // Afectar el comportamiento con la edad
+                const ageFactor = Math.min(1, this.age / 50);
+                
+                // Cambiar ángulo con cierta aleatoriedad
+                this.angle += this.angleSpeed * (1 + Math.sin(this.age * 0.05) * 0.3);
+                
+                // Calcular el próximo movimiento
+                let nextX = this.x + Math.cos(this.angle) * this.speed;
+                let nextY = this.y + Math.sin(this.angle) * this.speed;
+                
+                // Influencia del ratón si está activa
+                if (mouseInfluence) {
+                    const distToMouse = Math.hypot(mouseX - this.x, mouseY - this.y);
+                    
+                    if (distToMouse < mouseRadius) {
+                        // Factor de influencia basado en la distancia
+                        const influence = (1 - distToMouse / mouseRadius) * 0.05;
+                        
+                        // Vector hacia el ratón
+                        const dirX = mouseX - this.x;
+                        const dirY = mouseY - this.y;
+                        const dirLength = Math.hypot(dirX, dirY);
+                        
+                        if (dirLength > 0) {
+                            // Añadir componente de atracción al movimiento
+                            nextX += (dirX / dirLength) * influence * this.speed * 10;
+                            nextY += (dirY / dirLength) * influence * this.speed * 10;
+                        }
+                    }
+                }
+                
+                // Actualizar posición
+                this.x = nextX;
+                this.y = nextY;
+
+                // Reiniciar si sale de los límites o es muy viejo
+                if (this.x < -this.length || this.x > width + this.length || 
+                    this.y < -this.length || this.y > height + this.length ||
+                    this.age > 300) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                // Opacidad basada en la edad
+                const opacity = Math.min(1, 3 - this.age / 100);
+                
+                // Color con opacidad
+                const rgbMatch = this.color.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+                let rgba = this.color;
+                
+                if (rgbMatch) {
+                    const r = parseInt(rgbMatch[1], 16);
+                    const g = parseInt(rgbMatch[2], 16);
+                    const b = parseInt(rgbMatch[3], 16);
+                    rgba = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                }
+                
+                ctx.strokeStyle = rgba;
+                ctx.lineWidth = this.thickness * (1 - this.age / 300); // Adelgazar con la edad
+                
+                // Dibujar la línea
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(
+                    this.x + Math.cos(this.angle) * this.length,
+                    this.y + Math.sin(this.angle) * this.length
+                );
+                ctx.stroke();
+            }
+        }
+
+        // Crear fibras
+        let fibers = Array(config.fiberCount).fill().map(() => new Fiber());
+
+        function updateConfig() {
+            const mode = memoryModes[currentModeIndex];
+            config.fadeSpeed = mode.fadeSpeed;
+            config.moveSpeed = mode.moveSpeed;
+            config.minLength = mode.minLength;
+            config.maxLength = mode.maxLength;
+            
+            // Mostrar nombre del modo brevemente
+            helpText.textContent = `Modo: ${mode.name}`;
+            helpText.classList.remove('hidden');
+            setTimeout(() => {
+                if (!showHelp) {
+                    helpText.classList.add('hidden');
+                } else {
+                    helpText.textContent = 'Explora la plasticidad de la memoria. Mueve el ratón para influir en los recuerdos.\nPresiona H para ocultar/mostrar este texto.';
+                }
+            }, 2000);
+        }
+
+        function changePalette() {
+            currentPaletteIndex = (currentPaletteIndex + 1) % palettes.length;
+            
+            // Mostrar nombre de la paleta brevemente
+            helpText.textContent = `Paleta: ${palettes[currentPaletteIndex].name}`;
+            helpText.classList.remove('hidden');
+            setTimeout(() => {
+                if (!showHelp) {
+                    helpText.classList.add('hidden');
+                } else {
+                    helpText.textContent = 'Explora la plasticidad de la memoria. Mueve el ratón para influir en los recuerdos.\nPresiona H para ocultar/mostrar este texto.';
+                }
+            }, 2000);
+            
+            // Cambiar gradualmente el color de las fibras en lugar de reiniciarlas todas
+            fibers.forEach((fiber, index) => {
+                // Cambiar colores gradualmente para crear una transición
+                setTimeout(() => {
+                    fiber.color = palettes[currentPaletteIndex].colors[
+                        Math.floor(Math.random() * palettes[currentPaletteIndex].colors.length)
+                    ];
+                }, index * 5);
+            });
+        }
+
+        function resetScene() {
+            fibers.forEach(fiber => fiber.reset());
+        }
+
+        function changeMode() {
+            currentModeIndex = (currentModeIndex + 1) % memoryModes.length;
+            updateConfig();
+        }
+
+        function animate() {
+            // Crear el efecto de desvanecimiento
+            ctx.fillStyle = `rgba(0, 0, 0, ${config.fadeSpeed})`;
+            ctx.fillRect(0, 0, width, height);
+
+            // Actualizar y dibujar cada fibra
+            fibers.forEach(fiber => {
+                fiber.update();
+                fiber.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Iniciar animación
+        animate();
+
+        // Event listeners para los controles
+        paletteBtn.addEventListener('click', changePalette);
+        modeBtn.addEventListener('click', changeMode);
+        resetBtn.addEventListener('click', resetScene);
+        
+        // Atajos de teclado
+        document.addEventListener('keydown', (event) => {
+            switch(event.key.toLowerCase()) {
+                case ' ':
+                case 'p':
+                    changePalette();
+                    break;
+                case 'm':
+                    changeMode();
+                    break;
+                case 'r':
+                    resetScene();
+                    break;
+                case 'h':
+                    showHelp = !showHelp;
+                    helpText.classList.toggle('hidden');
+                    break;
+                case 'c':
+                    showControls = !showControls;
+                    if (showControls) {
+                        controls.classList.remove('hidden');
+                    } else {
+                        controls.classList.add('hidden');
+                    }
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>

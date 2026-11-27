@@ -1,0 +1,10 @@
+{
+  "titulo": "Espuma de Voronoi",
+  "descripcion": "Celdas de Voronoi que se subdividen y burbujean como espuma.",
+  "fecha": "2024-06-01",
+  "etiquetas": [
+    "arte generativo",
+    "d3"
+  ],
+  "portada": "portada.jpg"
+}

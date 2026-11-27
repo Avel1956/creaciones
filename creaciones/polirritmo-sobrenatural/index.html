@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polirritmo Sobrenatural</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Configuración de la animación
+        const shapes = [];
+        const numShapes = 5;
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FDCB6E', '#6C5CE7'];
+
+        // Configuración del sonido
+        const synths = [];
+        const notes = ['C4', 'D4', 'E4', 'G4', 'A4'];
+        const durations = [1, 0.75, 0.5, 0.25, 0.125];
+
+        // Crear formas y sintetizadores
+        for (let i = 0; i < numShapes; i++) {
+            shapes.push({
+                x: width / 2,
+                y: height / 2,
+                radius: 20 + i * 30,
+                angle: 0,
+                speed: 0.01 + i * 0.005,
+                color: colors[i]
+            });
+
+            const synth = new Tone.Synth({
+                oscillator: {
+                    type: 'sine'
+                },
+                envelope: {
+                    attack: 0.005,
+                    decay: 0.1,
+                    sustain: 0.3,
+                    release: 0.1
+                }
+            }).toDestination();
+            synths.push(synth);
+        }
+
+        // Función de animación
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+
+            shapes.forEach((shape, index) => {
+                shape.angle += shape.speed;
+                const x = width / 2 + Math.cos(shape.angle) * shape.radius;
+                const y = height / 2 + Math.sin(shape.angle) * shape.radius;
+
+                ctx.beginPath();
+                ctx.arc(x, y, 10, 0, Math.PI * 2);
+                ctx.fillStyle = shape.color;
+                ctx.fill();
+
+                // Dibujar línea al centro
+                ctx.beginPath();
+                ctx.moveTo(width / 2, height / 2);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = shape.color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Reproducir sonido
+                if (Math.random() < 0.02) {
+                    synths[index].triggerAttackRelease(notes[index], durations[index]);
+                }
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Iniciar la animación y el sonido
+        Tone.start().then(() => {
+            animate();
+        });
+
+        // Interactividad
+        canvas.addEventListener('click', () => {
+            shapes.forEach((shape, index) => {
+                shape.speed = Math.random() * 0.05 + 0.01;
+                synths[index].triggerAttackRelease(notes[index], 0.1);
+            });
+        });
+    </script>
+</body>
+</html>

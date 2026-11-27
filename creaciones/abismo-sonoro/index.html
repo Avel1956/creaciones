@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abismo Sonoro</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        button {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #444;
+        }
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="controls">
+        <button id="uploadBtn">Cargar Audio</button>
+        <button id="playPauseBtn" disabled>Reproducir</button>
+    </div>
+    <input type="file" id="fileInput" accept="audio/*">
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, centerX, centerY;
+
+        // Audio Context y análisis
+        let audioContext, audioSource, analyser, audioData;
+        let isPlaying = false;
+        let audioBuffer = null; // Store the decoded audio buffer
+
+        // Configuración del agujero negro
+        const blackHole = {
+            baseRadius: 50,
+            radius: 50,
+            accretionDiskRadius: 120,
+            gravitationalForce: 1.5, // Reducida para un movimiento más lento
+            diskRotationSpeed: 0.0005 // Reducida para un giro más lento
+        };
+
+        // Configuración
+        const config = {
+            particleCount: 1500, // Reducidas para un efecto más sutil
+            explosionParticleCount: 50, // Reducidas para menos explosiones
+            maxExplosions: 1, // Solo una explosión a la vez
+            arcCount: 3 // Menos arcos
+        };
+
+        // Arrays globales
+        let particles = [];
+        let explosionParticles = [];
+        let exoticArcs = [];
+        let time = 0;
+
+        class Particle {
+            constructor(type = 'normal') {
+                this.type = type;
+                this.reset();
+            }
+
+            reset() {
+                if (this.type === 'explosion') {
+                    this.resetExplosion();
+                } else {
+                    this.resetNormal();
+                }
+            }
+
+            resetNormal() {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * width * 0.5 + width * 0.2;
+                this.x = centerX + Math.cos(angle) * distance;
+                this.y = centerY + Math.sin(angle) * distance;
+                this.z = Math.random() * 1000;
+                this.speed = Math.random() * 1 + 0.5; // Reducida la velocidad
+                this.size = Math.random() * 1.5 + 0.5; // Reducido el tamaño
+                // Color: escala de grises más apagada y con menor probabilidad de rojo
+                const gray = Math.random() * 100 + 50; // Grises entre 50 y 150
+                this.color = Math.random() < 0.005 ? `rgb(100, 0, 0)` : `rgb(${gray}, ${gray}, ${gray})`; // 0.5% de probabilidad de rojo oscuro
+            }
+
+            resetExplosion() {
+                const angle = Math.random() * Math.PI * 2;
+                const distance = blackHole.radius + Math.random() * 25; // Explosiones más cerca del agujero negro
+                this.x = centerX + Math.cos(angle) * distance;
+                this.y = centerY + Math.sin(angle) * distance;
+                this.vx = (Math.random() - 0.5) * 5; // Reducida la velocidad de la explosión
+                this.vy = (Math.random() - 0.5) * 5;
+                this.life = 1;
+                this.color = `rgb(100, 0, 0)`; // Rojo oscuro
+            }
+
+            update(audioLevels) {
+                if (this.type === 'explosion') {
+                    return this.updateExplosion(audioLevels);
+                }
+                return this.updateNormal(audioLevels);
+            }
+
+            updateNormal(audioLevels) {
+                const dx = this.x - centerX;
+                const dy = this.y - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                const force = (blackHole.gravitationalForce * (1 + audioLevels.bass) * 1000) / (distance + 1); // Reducida la influencia del audio
+                const angle = Math.atan2(dy, dx);
+
+                // Movimiento afectado por el audio (más sutil)
+                this.x += Math.cos(angle) * -force * 0.3; // Reducido el factor de fuerza
+                this.y += Math.sin(angle) * -force * 0.3;
+
+                // Efecto de rotación influenciado por medios (más lento)
+                const rotationAngle = time * blackHole.diskRotationSpeed * (1 + audioLevels.mids * 0.5); // Reducida la influencia del audio
+                const rotatedX = Math.cos(rotationAngle) * (this.x - centerX) - Math.sin(rotationAngle) * (this.y - centerY);
+                const rotatedY = Math.sin(rotationAngle) * (this.x - centerX) + Math.cos(rotationAngle) * (this.y - centerY);
+                this.x = rotatedX + centerX;
+                this.y = rotatedY + centerY;
+
+                if (distance < blackHole.radius || distance > width * 0.8) { // Las partículas se reinician más lejos
+                    this.reset();
+                    return true;
+                }
+                return false;
+            }
+
+            updateExplosion(audioLevels) {
+                this.x += this.vx * (1 + audioLevels.highs * 0.5); // Reducida la influencia del audio
+                this.y += this.vy * (1 + audioLevels.highs * 0.5);
+                this.life -= 0.04; // La explosión dura más
+                return this.life <= 0;
+            }
+
+            draw(audioLevels) {
+                const dx = this.x - centerX;
+                const dy = this.y - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                ctx.beginPath();
+                ctx.fillStyle = this.color;
+
+                if (this.type === 'explosion') {
+                    ctx.globalAlpha = this.life;
+                    ctx.arc(this.x, this.y, this.size * (1 + audioLevels.highs * 0.5), 0, Math.PI * 2); // Reducida la influencia del audio
+                } else {
+                    ctx.globalAlpha = Math.min(0.7, (width - distance) / width); // Reducida la opacidad
+                    if (distance < blackHole.accretionDiskRadius * 1.5) {
+                        const stretchFactor = Math.min(3, blackHole.accretionDiskRadius / (distance + 1)); // Reducido el estiramiento
+                        const angle = Math.atan2(dy, dx);
+                        ctx.ellipse(
+                            this.x,
+                            this.y,
+                            this.size * stretchFactor * (1 + audioLevels.bass * 0.5), // Reducida la influencia del audio
+                            this.size,
+                            angle,
+                            0,
+                            Math.PI * 2
+                        );
+                    } else {
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    }
+                }
+                ctx.fill();
+            }
+        }
+
+        class ExoticArc {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.startAngle = Math.random() * Math.PI * 2;
+                this.arcLength = Math.random() * Math.PI / 2 + Math.PI / 4; // Arcos más cortos
+                this.radius = blackHole.accretionDiskRadius * (0.6 + Math.random() * 0.4); // Reducido el rango del radio
+                this.width = Math.random() * 3 + 1;  // Reducido el ancho máximo
+                this.color = `rgba(100, 100, 100, 0.5)`; // Gris más transparente
+                this.life = 1;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.005; // Reducida la velocidad de rotación
+            }
+
+            update(audioLevels) {
+                this.startAngle += this.rotationSpeed * (1 + audioLevels.mids * 0.5); // Reducida la influencia del audio
+                this.life -= 0.01; // Reducida la duración
+                // Limitar el crecimiento del ancho basado en audio
+                this.width = Math.min(this.width * (1 + audioLevels.bass * 0.05), 5); // Crecimiento más lento y limitado a 5
+                return this.life <= 0;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = this.width;
+                ctx.globalAlpha = this.life * 0.5;
+                ctx.arc(centerX, centerY, this.radius, this.startAngle, this.startAngle + this.arcLength);
+                ctx.stroke();
+            }
+        }
+
+        // Audio setup
+        function initAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            audioData = new Uint8Array(analyser.frequencyBinCount);
+        }
+
+        function getAudioLevels() {
+            if (!isPlaying) return { bass: 0, mids: 0, highs: 0 };
+            
+            analyser.getByteFrequencyData(audioData);
+            
+            const bass = getFrequencyRangeValue(0, 10);
+            const mids = getFrequencyRangeValue(11, 100);
+            const highs = getFrequencyRangeValue(101, 200);
+            
+            return { bass, mids, highs };
+        }
+
+        function getFrequencyRangeValue(start, end) {
+            let sum = 0;
+            for (let i = start; i <= end; i++) {
+                sum += audioData[i];
+            }
+            return sum / ((end - start + 1) * 255);
+        }
+
+        // Load and decode audio
+        async function loadAudio(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            audioBuffer = await audioContext.decodeAudioData(arrayBuffer); // Decode and store
+            return audioBuffer;
+        }
+        
+        // Start playing audio
+        function playAudio() {
+          if (audioBuffer) {
+            if (audioSource) {
+              audioSource.stop();
+              audioSource.disconnect();
+            }
+            audioSource = audioContext.createBufferSource();
+            audioSource.buffer = audioBuffer;
+            audioSource.connect(analyser);
+            analyser.connect(audioContext.destination);
+        
+            audioSource.onended = () => {
+              isPlaying = false;
+              document.getElementById('playPauseBtn').textContent = 'Reproducir';
+            };
+        
+            audioSource.start();
+            isPlaying = true;
+            document.getElementById('playPauseBtn').textContent = 'Pausar';
+          }
+        }
+
+        // Pause audio
+        function pauseAudio() {
+          if (audioSource) {
+            audioSource.stop();
+            isPlaying = false;
+            document.getElementById('playPauseBtn').textContent = 'Reproducir';
+          }
+        }
+        // Visualization
+        function drawBlackHole(audioLevels) {
+            // Disco de acreción más difuso
+            const gradient = ctx.createRadialGradient(
+                centerX, centerY, blackHole.radius,
+                centerX, centerY, blackHole.accretionDiskRadius
+            );
+            
+            gradient.addColorStop(0, 'rgba(100, 0, 0, 0)'); // Centro transparente
+            gradient.addColorStop(0.5, `rgba(100, 0, 0, ${0.1 + audioLevels.bass * 0.1})`); // Rojo oscuro y tenue
+            gradient.addColorStop(1, 'rgba(100, 0, 0, 0)'); // Borde transparente
+
+            ctx.beginPath();
+            ctx.fillStyle = gradient;
+            ctx.globalAlpha = 0.3 + audioLevels.mids * 0.3; // Más transparente y menos influenciado por el audio
+            ctx.arc(centerX, centerY, blackHole.accretionDiskRadius * (1 + audioLevels.bass * 0.1), 0, Math.PI * 2); // Menos influenciado por el audio
+            ctx.fill();
+
+            // Agujero negro central
+            ctx.beginPath();
+            ctx.fillStyle = 'black';
+            ctx.globalAlpha = 1;
+            ctx.arc(centerX, centerY, blackHole.radius * (1 + audioLevels.bass * 0.05), 0, Math.PI * 2); // Menos influenciado por el audio
+            ctx.fill();
+        }
+
+        function animate() {
+            const audioLevels = getAudioLevels();
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; // Fondo con un decaimiento más lento
+            ctx.fillRect(0, 0, width, height);
+
+            drawBlackHole(audioLevels);
+
+            // Actualizar y dibujar partículas
+            particles = particles.filter(p => !p.update(audioLevels));
+            explosionParticles = explosionParticles.filter(p => !p.update(audioLevels));
+            exoticArcs = exoticArcs.filter(a => !a.update(audioLevels));
+
+            // Crear nuevas partículas según sea necesario
+            while (particles.length < config.particleCount) {
+                particles.push(new Particle());
+            }
+
+            // Crear explosiones basadas en audio (menos frecuentes)
+            if (audioLevels.bass > 0.8 && Math.random() < 0.1) { // Menos probable
+                const newExplosion = Array(config.explosionParticleCount)
+                    .fill()
+                    .map(() => new Particle('explosion'));
+                explosionParticles.push(...newExplosion);
+            }
+
+            // Mantener arcos exóticos
+            while (exoticArcs.length < config.arcCount) {
+                exoticArcs.push(new ExoticArc());
+            }
+
+            // Dibujar todo
+            exoticArcs.forEach(arc => arc.draw());
+            particles.forEach(p => p.draw(audioLevels));
+            explosionParticles.forEach(p => p.draw(audioLevels));
+
+            time++;
+            requestAnimationFrame(animate);
+        }
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            centerX = width / 2;
+            centerY = height / 2;
+            
+            blackHole.baseRadius = Math.min(width, height) * 0.08; // Reducido el tamaño del agujero negro
+            blackHole.radius = blackHole.baseRadius;
+            blackHole.accretionDiskRadius = blackHole.baseRadius * 2.4;
+        }
+
+        // Setup
+        function init() {
+            resizeCanvas();
+            initAudio();
+
+            // Event listeners
+            window.addEventListener('resize', resizeCanvas);
+
+            // Upload audio
+            document.getElementById('uploadBtn').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+
+            document.getElementById('fileInput').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    // Resume the AudioContext on user interaction
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+
+                    await loadAudio(file);
+                    document.getElementById('playPauseBtn').disabled = false;
+                }
+            });
+            
+            // Play/Pause
+            document.getElementById('playPauseBtn').addEventListener('click', () => {
+              if (isPlaying) {
+                pauseAudio();
+              } else {
+                playAudio();
+              }
+            });
+
+            animate();
+        }
+
+        init();
+    </script>
+</body>
+</html>

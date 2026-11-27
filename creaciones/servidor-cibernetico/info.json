@@ -1,0 +1,11 @@
+{
+  "titulo": "Servidor cibernético",
+  "descripcion": "Una esfera de malla en three.js rodeada de paquetes de información en órbita. Deslizadores para velocidad y frecuencia.",
+  "fecha": "2024-09-10",
+  "etiquetas": [
+    "arte generativo",
+    "three.js",
+    "interactivo"
+  ],
+  "portada": "portada.jpg"
+}

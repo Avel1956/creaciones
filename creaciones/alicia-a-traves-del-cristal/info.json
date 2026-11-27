@@ -1,0 +1,10 @@
+{
+  "titulo": "Alicia a través del cristal",
+  "descripcion": "Escena 3D minimalista inspirada en Lewis Carroll, hecha con three.js.",
+  "fecha": "2025-10-02",
+  "etiquetas": [
+    "arte generativo",
+    "three.js"
+  ],
+  "portada": "portada.jpg"
+}

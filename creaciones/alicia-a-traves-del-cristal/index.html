@@ -1,0 +1,284 @@
+﻿<!DOCTYPE html>
+<html lang='es'>
+<head>
+  <meta charset='utf-8' />
+  <title>Alicia a traves del cristal - geometria minimalista</title>
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 50% 20%, #17233f, #05060f 55%);
+      font-family: 'Segoe UI', sans-serif;
+      color: #dbe6ff;
+      letter-spacing: 0.08em;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 5vh;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.65;
+    }
+
+    .overlay span {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border: 1px solid #375a8c;
+      border-radius: 999px;
+      background: rgba(10, 20, 38, 0.55);
+    }
+  </style>
+</head>
+<body>
+  <div class='overlay'><span>Alicia a traves del cristal</span></div>
+  <script src='https://unpkg.com/three@0.160.0/build/three.min.js'></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script>
+    (async function () {
+      const { EffectComposer } = await import('three/addons/postprocessing/EffectComposer.js');
+      const { RenderPass } = await import('three/addons/postprocessing/RenderPass.js');
+      const { AfterimagePass } = await import('three/addons/postprocessing/AfterimagePass.js');
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x090b1a);
+      scene.fog = new THREE.Fog(0x090b1a, 6, 18);
+
+      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 1.3, 6.2);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Post-processing for trails
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+
+      const afterimagePass = new AfterimagePass();
+      afterimagePass.uniforms.damp.value = 0.88; // Lower value = longer trails
+      composer.addPass(afterimagePass);
+
+      const hemiLight = new THREE.HemisphereLight(0xbedaff, 0x05060f, 0.75);
+      scene.add(hemiLight);
+
+      const keyLight = new THREE.PointLight(0xffffff, 1.1, 40, 2);
+      keyLight.position.set(-2, 3, 6);
+      keyLight.castShadow = true;
+      scene.add(keyLight);
+
+      const fillLight = new THREE.PointLight(0x4d9fff, 0.6, 30, 2);
+      fillLight.position.set(3, 2, -4);
+      scene.add(fillLight);
+
+      const glassMaterial = new THREE.MeshStandardMaterial({
+        color: 0x7ec9ff,
+        emissive: 0x07192f,
+        transparent: true,
+        opacity: 0.25,
+        roughness: 0.12,
+        metalness: 0.05,
+        side: THREE.DoubleSide
+      });
+
+      const mirror = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 6.5, 1, 1), glassMaterial);
+      mirror.position.set(0, 1.1, 0);
+      scene.add(mirror);
+
+      const frameMaterial = new THREE.MeshStandardMaterial({
+        color: 0x142b49,
+        metalness: 0.7,
+        roughness: 0.35,
+        side: THREE.DoubleSide
+      });
+
+      const frame = new THREE.Mesh(new THREE.RingGeometry(2.4, 2.6, 96), frameMaterial);
+      frame.rotation.y = Math.PI / 2;
+      frame.position.copy(mirror.position);
+      scene.add(frame);
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(3.2, 3.6, 0.3, 64),
+        new THREE.MeshStandardMaterial({ color: 0x0b111f, roughness: 0.85, metalness: 0.1 })
+      );
+      base.position.y = -0.8;
+      base.receiveShadow = true;
+      scene.add(base);
+
+      const pathMaterial = new THREE.MeshStandardMaterial({ color: 0x132038, roughness: 0.6, metalness: 0.2, side: THREE.DoubleSide });
+      const path = new THREE.Mesh(new THREE.PlaneGeometry(2, 10), pathMaterial);
+      path.rotation.x = -Math.PI / 2;
+      path.position.set(0, -0.65, -0.4);
+      path.receiveShadow = true;
+      scene.add(path);
+
+      function buildPalette() {
+        return {
+          skirt: new THREE.MeshStandardMaterial({ color: 0x4da6ff, roughness: 0.32, metalness: 0.12 }),
+          torso: new THREE.MeshStandardMaterial({ color: 0x162c49, roughness: 0.4, metalness: 0.18 }),
+          head: new THREE.MeshStandardMaterial({ color: 0xffdfc5, roughness: 0.55, metalness: 0.05 }),
+          hair: new THREE.MeshStandardMaterial({ color: 0x20263c, roughness: 0.45, metalness: 0.08 }),
+          ribbon: new THREE.MeshStandardMaterial({ color: 0xff6b9b, roughness: 0.5, metalness: 0.24 }),
+          key: new THREE.MeshStandardMaterial({ color: 0xf3d37a, roughness: 0.28, metalness: 0.9 })
+        };
+      }
+
+      function prepareMaterialSet(set) {
+        Object.keys(set).forEach(function (name) {
+          const mat = set[name];
+          mat.side = THREE.DoubleSide;
+          mat.flatShading = true;
+        });
+        return set;
+      }
+
+      function createAlice(palette) {
+        const group = new THREE.Group();
+
+        const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.8, 24), palette.skirt);
+        skirt.position.y = 0.2;
+        group.add(skirt);
+
+        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.32, 1.1, 16), palette.torso);
+        torso.position.y = 1.2;
+        group.add(torso);
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 18), palette.head);
+        head.position.y = 2;
+        group.add(head);
+
+        const hair = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.06, 10, 36), palette.hair);
+        hair.rotation.x = Math.PI / 2;
+        hair.position.y = 2;
+        group.add(hair);
+
+        const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.06, 0.22), palette.ribbon);
+        ribbon.position.set(0, 1.55, 0.16);
+        group.add(ribbon);
+
+        const key = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.02, 12, 24), palette.key);
+        key.position.set(0.46, 1.05, 0.24);
+        key.rotation.x = Math.PI / 3;
+        group.add(key);
+
+        group.traverse(function (child) {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        return group;
+      }
+
+      const paletteFront = prepareMaterialSet(buildPalette());
+      const paletteMirror = prepareMaterialSet(buildPalette());
+
+      paletteMirror.skirt.color.offsetHSL(0.02, -0.28, 0.15);
+      paletteMirror.torso.color.offsetHSL(-0.04, -0.12, 0.2);
+      paletteMirror.ribbon.color.offsetHSL(0.1, -0.35, 0.25);
+      paletteMirror.key.color.offsetHSL(0.05, -0.2, 0.12);
+
+      const aliceFront = createAlice(paletteFront);
+      aliceFront.position.set(0, -0.15, -2.4);
+      scene.add(aliceFront);
+
+      const aliceMirror = createAlice(paletteMirror);
+      aliceMirror.scale.z = -1;
+      aliceMirror.position.set(0, -0.15, 2.4);
+      scene.add(aliceMirror);
+
+      // Line connecting the two Alices
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: 0x7ec9ff,
+        transparent: true,
+        opacity: 0.4,
+        blending: THREE.AdditiveBlending
+      });
+      const linePoints = [aliceFront.position.clone(), aliceMirror.position.clone()];
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+      const connectionLine = new THREE.Line(lineGeometry, lineMaterial);
+      // Adjust y position to be at torso level
+      connectionLine.position.y = 1.2;
+      scene.add(connectionLine);
+
+      const crystalGroup = new THREE.Group();
+      scene.add(crystalGroup);
+
+      const shardMaterial = new THREE.MeshStandardMaterial({
+        color: 0x8eeaff,
+        emissive: 0x0a1f2f,
+        emissiveIntensity: 0.65,
+        transparent: true,
+        opacity: 0.36,
+        roughness: 0.08,
+        metalness: 0.45,
+        side: THREE.DoubleSide
+      });
+
+      for (let i = 0; i < 14; i += 1) {
+        const shard = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.9, 4), shardMaterial);
+        shard.position.set((Math.random() - 0.5) * 2.6, 0.4 + Math.random() * 1.8, (Math.random() < 0.5 ? -1 : 1) * (0.25 + Math.random() * 1.4));
+        shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        crystalGroup.add(shard);
+      }
+
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+
+        camera.position.x = Math.sin(t * 0.25) * 1.2;
+        camera.position.z = 5.8 - Math.cos(t * 0.25) * 1.6;
+        camera.lookAt(0, 1.1 + Math.sin(t * 0.7) * 0.05, 0);
+
+        const sway = Math.sin(t * 0.6) * 0.2;
+        aliceFront.rotation.y = sway;
+        aliceMirror.rotation.y = -sway;
+
+        crystalGroup.children.forEach(function (shard, index) {
+          shard.rotation.x += 0.004 + index * 0.0002;
+          shard.rotation.y += 0.006 + index * 0.00015;
+          shard.position.y += Math.sin(t * 1.8 + index) * 0.0015;
+        });
+
+        glassMaterial.opacity = 0.22 + (Math.sin(t * 1.9) + 1) * 0.09;
+        glassMaterial.emissiveIntensity = 0.5 + (Math.sin(t * 1.4) + 1) * 0.15;
+
+        // Make the connection line pulse
+        connectionLine.material.opacity = 0.3 + (Math.sin(t * 2.5) + 1) * 0.2;
+
+        // Use composer to render with the afterimage effect
+        composer.render();
+      }
+
+      animate();
+
+      window.addEventListener('resize', function () {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }());
+  </script>
+</body>
+</html>

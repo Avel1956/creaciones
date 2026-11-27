@@ -1,0 +1,11 @@
+{
+  "titulo": "Botella de Klein",
+  "descripcion": "Superficie no orientable en three.js con bordes luminosos. ESPACIO cambia la paleta.",
+  "fecha": "2024-09-26",
+  "etiquetas": [
+    "arte generativo",
+    "three.js",
+    "matemáticas"
+  ],
+  "portada": "portada.jpg"
+}

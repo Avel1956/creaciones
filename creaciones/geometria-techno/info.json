@@ -1,0 +1,10 @@
+{
+  "titulo": "Geometría techno",
+  "descripcion": "Una cuadrícula de figuras que late al ritmo de un sintetizador. Clic para activar el audio.",
+  "fecha": "2024-09-19",
+  "etiquetas": [
+    "sonido",
+    "arte generativo"
+  ],
+  "portada": "portada.jpg"
+}

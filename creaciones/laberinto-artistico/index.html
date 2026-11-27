@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laberinto Artístico</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a2e;
+            font-family: 'Arial', sans-serif;
+        }
+        #container {
+            width: 540px;
+            height: 960px;
+            background-color: #16213e;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+        #controls {
+            padding: 10px;
+            background-color: #0f3460;
+            border-bottom: 1px solid #e94560;
+        }
+        #maze {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #ff6b6b;
+        }
+        input {
+            margin: 5px;
+            padding: 5px;
+            width: 50px;
+            background-color: #16213e;
+            border: 1px solid #e94560;
+            color: #fff;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <button id="startBtn">Iniciar</button>
+            <input type="number" id="mazeSize" value="50" min="20" max="100">
+            <input type="number" id="obstaclePercentage" value="30" min="0" max="70">
+        </div>
+        <div id="maze">
+            <canvas id="mazeCanvas"></canvas>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('mazeCanvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const mazeSizeInput = document.getElementById('mazeSize');
+        const obstaclePercentageInput = document.getElementById('obstaclePercentage');
+
+        let maze = [];
+        let path = [];
+        let openSet = [];
+        let closedSet = [];
+        let currentPos = {x: 0, y: 0};
+        let endPos = {x: 0, y: 0};
+        let cellSize = 0;
+        let animationStep = 0;
+        let isSearching = false;
+        let isClassifying = false;
+
+        const palettes = [
+            ['#05668d', '#028090', '#00a896', '#02c39a', '#f0f3bd'],
+            ['#ffa69e', '#faf3dd', '#b8f2e6', '#aed9e0', '#5e6472'],
+            ['#3d5a80', '#98c1d9', '#e0fbfc', '#ee6c4d', '#293241'],
+            ['#8ecae6', '#219ebc', '#023047', '#ffb703', '#fb8500'],
+            ['#390099', '#9e0059', '#ff0054', '#ff5400', '#ffbd00']
+        ];
+        let currentPalette;
+
+        function initMaze() {
+            const size = parseInt(mazeSizeInput.value);
+            const obstaclePercentage = parseInt(obstaclePercentageInput.value) / 100;
+            
+            maze = Array(size).fill().map(() => Array(size).fill(1)); // Start with all walls
+            
+            currentPos = {x: 0, y: 0};
+            endPos = {x: size-1, y: size-1};
+            
+            generateMaze(0, 0, size-1, size-1);
+            addPassages(1 - obstaclePercentage);
+
+            maze[0][0] = 'S';
+            maze[size-1][size-1] = 'E';
+
+            path = [];
+            openSet = [{x: 0, y: 0, g: 0, h: heuristic({x: 0, y: 0}, endPos), f: heuristic({x: 0, y: 0}, endPos), parent: null}];
+            closedSet = [];
+            animationStep = 0;
+            isSearching = false;
+            isClassifying = false;
+
+            cellSize = Math.min(canvas.width, canvas.height) / size;
+            canvas.width = size * cellSize;
+            canvas.height = size * cellSize;
+
+            currentPalette = palettes[Math.floor(Math.random() * palettes.length)];
+        }
+
+        function generateMaze(startX, startY, endX, endY) {
+            const stack = [{x: startX, y: startY}];
+            const directions = [{dx: 1, dy: 0}, {dx: -1, dy: 0}, {dx: 0, dy: 1}, {dx: 0, dy: -1}];
+
+            while (stack.length > 0) {
+                const current = stack.pop();
+                maze[current.y][current.x] = 0;
+
+                if (current.x === endX && current.y === endY) {
+                    return; // Path to end found
+                }
+
+                // Shuffle directions
+                for (let i = directions.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [directions[i], directions[j]] = [directions[j], directions[i]];
+                }
+
+                for (const {dx, dy} of directions) {
+                    const nextX = current.x + dx;
+                    const nextY = current.y + dy;
+                    if (nextX >= 0 && nextX < maze[0].length && nextY >= 0 && nextY < maze.length && maze[nextY][nextX] === 1) {
+                        maze[nextY][nextX] = 0;
+                        stack.push({x: nextX, y: nextY});
+                    }
+                }
+            }
+        }
+
+        function addPassages(percentage) {
+            const size = maze.length;
+            const totalWalls = maze.flat().filter(cell => cell === 1).length;
+            const passagesToAdd = Math.floor(totalWalls * percentage);
+            
+            let added = 0;
+            while (added < passagesToAdd) {
+                const x = Math.floor(Math.random() * size);
+                const y = Math.floor(Math.random() * size);
+                
+                if (maze[y][x] === 1) {
+                    maze[y][x] = 0;
+                    added++;
+                }
+            }
+        }
+
+        function heuristic(a, b) {
+            return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+        }
+
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let y = 0; y < maze.length; y++) {
+                for (let x = 0; x < maze[y].length; x++) {
+                    if (maze[y][x] === 1) {
+                        ctx.fillStyle = currentPalette[0];
+                    } else if (path.some(p => p.x === x && p.y === y)) {
+                        ctx.fillStyle = currentPalette[4];
+                    } else if (closedSet.some(p => p.x === x && p.y === y)) {
+                        ctx.fillStyle = currentPalette[2];
+                    } else if (openSet.some(p => p.x === x && p.y === y)) {
+                        ctx.fillStyle = currentPalette[3];
+                    } else if (maze[y][x] === 'S') {
+                        ctx.fillStyle = '#00ff00';
+                    } else if (maze[y][x] === 'E') {
+                        ctx.fillStyle = '#ff0000';
+                    } else {
+                        ctx.fillStyle = currentPalette[1];
+                    }
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+            
+            // Highlight current position
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(currentPos.x * cellSize + cellSize / 2, currentPos.y * cellSize + cellSize / 2, cellSize / 3, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function aStarStep() {
+            if (!isSearching || openSet.length === 0) return;
+
+            let current = openSet[0];
+            let currentIndex = 0;
+            for (let i = 1; i < openSet.length; i++) {
+                if (openSet[i].f < current.f) {
+                    current = openSet[i];
+                    currentIndex = i;
+                }
+            }
+
+            if (current.x === endPos.x && current.y === endPos.y) {
+                // Path found
+                let temp = current;
+                path = [];
+                while (temp !== null) {
+                    path.push({x: temp.x, y: temp.y});
+                    temp = temp.parent;
+                }
+                path.reverse();
+                isSearching = false;
+                isClassifying = true;
+                animationStep = 0;
+                drawMaze();
+                setTimeout(classifyStep, 50);
+                return;
+            }
+
+            openSet.splice(currentIndex, 1);
+            closedSet.push(current);
+
+            const directions = [{dx: 1, dy: 0}, {dx: -1, dy: 0}, {dx: 0, dy: 1}, {dx: 0, dy: -1}];
+            for (const {dx, dy} of directions) {
+                const newX = current.x + dx;
+                const newY = current.y + dy;
+
+                if (newX >= 0 && newX < maze[0].length && newY >= 0 && newY < maze.length && maze[newY][newX] !== 1) {
+                    const neighbor = {x: newX, y: newY};
+                    if (!closedSet.some(p => p.x === neighbor.x && p.y === neighbor.y)) {
+                        const tentativeG = current.g + 1;
+
+                        let inOpenSet = openSet.find(p => p.x === neighbor.x && p.y === neighbor.y);
+                        if (!inOpenSet) {
+                            openSet.push({
+                                x: neighbor.x,
+                                y: neighbor.y,
+                                g: tentativeG,
+                                h: heuristic(neighbor, endPos),
+                                f: tentativeG + heuristic(neighbor, endPos),
+                                parent: current
+                            });
+                        } else if (tentativeG < inOpenSet.g) {
+                            inOpenSet.g = tentativeG;
+                            inOpenSet.f = inOpenSet.g + inOpenSet.h;
+                            inOpenSet.parent = current;
+                        }
+                    }
+                }
+            }
+
+            currentPos = {x: current.x, y: current.y};
+            drawMaze();
+
+            setTimeout(aStarStep, 10);
+        }
+
+        function classifyStep() {
+            if (!isClassifying) return;
+
+            if (animationStep < path.length) {
+                const {x, y} = path[animationStep];
+                if (maze[y][x] === 0 || maze[y][x] === 'S') {
+                    let swapPos = path.slice(animationStep).find(({x: x2, y: y2}) => maze[y2][x2] !== 0 && maze[y2][x2] !== 1 && maze[y2][x2] !== 'S' && maze[y2][x2] !== 'E');
+                    if (swapPos) {
+                        [maze[y][x], maze[swapPos.y][swapPos.x]] = [maze[swapPos.y][swapPos.x], maze[y][x]];
+                    }
+                }
+                currentPos = {x, y};
+                animationStep++;
+                drawMaze();
+                setTimeout(classifyStep, 50);
+            } else {
+                isClassifying = false;
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            initMaze();
+            drawMaze();
+            isSearching = true;
+            aStarStep();
+        });
+
+        // Inicialización
+        canvas.width = 360;
+        canvas.height = 640;
+        initMaze();
+        drawMaze();
+    </script>
+</body>
+</html>

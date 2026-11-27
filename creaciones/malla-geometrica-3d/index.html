@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malla Geométrica Mutante 3D</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let mesh;
+
+        // Parámetros ajustables
+        let params = {
+            nodeCount: 150,
+            connectionProbability: 0.05,
+            rotationSpeed: 1,
+            transitionSpeed: 0.02,
+            trailOpacity: 0.05
+        };
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            if (mesh) {
+                mesh.adjustToNewSize();
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const colorPalettes = {
+            japaneseBrush: ['#D40000', '#000000', '#FFFFFF', '#C17E61', '#8E354A'],
+            luxury: ['#FFD700', '#000000', '#FFFFFF', '#800080', '#4B0082'],
+            loveAndWar: ['#FF1493', '#8B0000', '#FFF0F5', '#000000', '#CD5C5C'],
+            inkAndPaper: ['#2E2E2E', '#F8F8FF', '#4F4F4F', '#E5E4E2', '#7A7A7A'],
+            sakura: ['#FFB7C5', '#FFFFFF', '#FFC0CB', '#FF69B4', '#FFC3A0'],
+            goldenDragon: ['#FFD700', '#FF4500', '#000000', '#8B0000', '#FFA500']
+        };
+
+        function getRandomPalette() {
+            const palettes = Object.values(colorPalettes);
+            return palettes[Math.floor(Math.random() * palettes.length)];
+        }
+
+        function getRandomColor(palette) {
+            return palette[Math.floor(Math.random() * palette.length)];
+        }
+
+        class Node {
+            constructor(x, y, z = 0, color) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+                this.targetX = x;
+                this.targetY = y;
+                this.targetZ = z;
+                this.vx = 0;
+                this.vy = 0;
+                this.vz = 0;
+                this.baseRadius = Math.random() * 2 + 2;
+                this.radius = this.baseRadius;
+                this.color = color;
+                this.pulsePhase = Math.random() * Math.PI * 2;
+                this.pulseSpeed = Math.random() * 0.05 + 0.05;
+            }
+
+            update() {
+                this.pulsePhase += this.pulseSpeed;
+                this.radius = this.baseRadius + Math.sin(this.pulsePhase) * 1;
+
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const dz = this.targetZ - this.z;
+                this.vx += dx * (Math.random() * 0.03 + 0.02);
+                this.vy += dy * (Math.random() * 0.03 + 0.02);
+                this.vz += dz * (Math.random() * 0.03 + 0.02);
+                this.vx *= 0.9;
+                this.vy *= 0.9;
+                this.vz *= 0.9;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.z += this.vz;
+            }
+
+            draw() {
+                const perspective = 1000 / (1000 + this.z);
+                const projectedX = this.x * perspective + width / 2;
+                const projectedY = this.y * perspective + height / 2;
+                const projectedRadius = this.radius * perspective;
+
+                ctx.beginPath();
+                ctx.arc(projectedX, projectedY, projectedRadius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        class Mesh {
+            constructor() {
+                this.nodes = [];
+                this.connections = [];
+                this.shapes = ['rhombicDodecahedron', 'sphere', 'cube', 'wave', 'spiral', 'starburst'];
+                this.currentShape = this.shapes[Math.floor(Math.random() * this.shapes.length)];
+                this.nextShapeTime = 0;
+                this.transitionProgress = 0;
+                this.rotationX = 0;
+                this.rotationY = 0;
+                this.rotationZ = 0;
+                this.currentPalette = getRandomPalette();
+                this.createInitialMesh();
+            }
+
+            createInitialMesh() {
+                this.nodes = [];
+                this.connections = [];
+                for (let i = 0; i < params.nodeCount; i++) {
+                    this.nodes.push(new Node(
+                        Math.random() * width - width / 2,
+                        Math.random() * height - height / 2,
+                        Math.random() * 200 - 100,
+                        getRandomColor(this.currentPalette)
+                    ));
+                }
+
+                for (let i = 0; i < this.nodes.length; i++) {
+                    for (let j = i + 1; j < this.nodes.length; j++) {
+                        if (Math.random() < params.connectionProbability) {
+                            this.connections.push([i, j]);
+                        }
+                    }
+                }
+            }
+
+            adjustToNewSize() {
+                this.nodes.forEach(node => {
+                    node.x = (node.x / width) * window.innerWidth;
+                    node.y = (node.y / height) * window.innerHeight;
+                });
+                width = window.innerWidth;
+                height = window.innerHeight;
+            }
+
+            rotatePoint(x, y, z) {
+                let rotationSpeed = params.rotationSpeed;
+                // Rotate around X axis
+                let temp = y;
+                y = y * Math.cos(this.rotationX * rotationSpeed) - z * Math.sin(this.rotationX * rotationSpeed);
+                z = temp * Math.sin(this.rotationX * rotationSpeed) + z * Math.cos(this.rotationX * rotationSpeed);
+
+                // Rotate around Y axis
+                temp = x;
+                x = x * Math.cos(this.rotationY * rotationSpeed) + z * Math.sin(this.rotationY * rotationSpeed);
+                z = -temp * Math.sin(this.rotationY * rotationSpeed) + z * Math.cos(this.rotationY * rotationSpeed);
+
+                // Rotate around Z axis
+                temp = x;
+                x = x * Math.cos(this.rotationZ * rotationSpeed) - y * Math.sin(this.rotationZ * rotationSpeed);
+                y = temp * Math.sin(this.rotationZ * rotationSpeed) + y * Math.cos(this.rotationZ * rotationSpeed);
+
+                return {x, y, z};
+            }
+
+            updateShape() {
+                const time = Date.now();
+                
+                if (time > this.nextShapeTime) {
+                    this.currentShape = this.shapes[Math.floor(Math.random() * this.shapes.length)];
+                    this.nextShapeTime = time + Math.random() * 3000 + 3000;
+                    this.transitionProgress = 0;
+                    this.currentPalette = getRandomPalette();
+                    this.nodes.forEach(node => node.color = getRandomColor(this.currentPalette));
+                }
+
+                this.transitionProgress = Math.min(1, this.transitionProgress + params.transitionSpeed);
+                this.rotationX += 0.005;
+                this.rotationY += 0.007;
+                this.rotationZ += 0.003;
+
+                this.nodes.forEach((node, i) => {
+                    let targetX, targetY, targetZ;
+                    const normalizedI = i / this.nodes.length;
+
+                    switch (this.currentShape) {
+                        case 'rhombicDodecahedron':
+                            const r = Math.min(width, height) * 0.4;
+                            targetX = r * (Math.random() * 2 - 1);
+                            targetY = r * (Math.random() * 2 - 1);
+                            targetZ = r * (Math.random() * 2 - 1);
+                            break;
+                        case 'sphere':
+                            const theta = Math.acos(2 * normalizedI - 1);
+                            const phi = Math.sqrt(this.nodes.length * Math.PI) * theta;
+                            const radius = Math.min(width, height) * 0.4;
+                            targetX = radius * Math.sin(theta) * Math.cos(phi);
+                            targetY = radius * Math.sin(theta) * Math.sin(phi);
+                            targetZ = radius * Math.cos(theta);
+                            break;
+                        case 'cube':
+                            const size = Math.min(width, height) * 0.4;
+                            const u = (i % 4) / 3 - 0.5;
+                            const v = (Math.floor(i / 4) % 4) / 3 - 0.5;
+                            const w = (Math.floor(i / 16) % 4) / 3 - 0.5;
+                            targetX = u * size;
+                            targetY = v * size;
+                            targetZ = w * size;
+                            break;
+                        case 'wave':
+                            targetX = (normalizedI - 0.5) * width;
+                            targetY = Math.sin(normalizedI * Math.PI * 4) * (height / 4);
+                            targetZ = Math.cos(normalizedI * Math.PI * 4) * 50;
+                            break;
+                        case 'spiral':
+                            const spiralAngle = normalizedI * Math.PI * 10;
+                            const spiralRadius = normalizedI * Math.min(width, height) * 0.4;
+                            targetX = Math.cos(spiralAngle) * spiralRadius;
+                            targetY = Math.sin(spiralAngle) * spiralRadius;
+                            targetZ = (normalizedI - 0.5) * 200;
+                            break;
+                        case 'starburst':
+                            const burstAngle = normalizedI * Math.PI * 2;
+                            const burstRadius = Math.sin(normalizedI * Math.PI * 10) * Math.min(width, height) * 0.4;
+                            targetX = Math.cos(burstAngle) * burstRadius;
+                            targetY = Math.sin(burstAngle) * burstRadius;
+                            targetZ = Math.cos(normalizedI * Math.PI * 20) * 100;
+                            break;
+                    }
+
+                    const rotated = this.rotatePoint(targetX, targetY, targetZ);
+                    node.targetX = rotated.x;
+                    node.targetY = rotated.y;
+                    node.targetZ = rotated.z;
+                });
+            }
+
+            update() {
+                this.updateShape();
+                this.nodes.forEach(node => node.update());
+            }
+
+            draw() {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+
+                this.connections.forEach(([i, j]) => {
+                    const nodeA = this.nodes[i];
+                    const nodeB = this.nodes[j];
+                    const perspectiveA = 1000 / (1000 + nodeA.z);
+                    const perspectiveB = 1000 / (1000 + nodeB.z);
+                    const projectedAX = nodeA.x * perspectiveA + width / 2;
+                    const projectedAY = nodeA.y * perspectiveA + height / 2;
+                    const projectedBX = nodeB.x * perspectiveB + width / 2;
+                    const projectedBY = nodeB.y * perspectiveB + height / 2;
+
+                    ctx.beginPath();
+                    ctx.moveTo(projectedAX, projectedAY);
+                    ctx.lineTo(projectedBX, projectedBY);
+                    ctx.stroke();
+                });
+
+                this.nodes.forEach(node => node.draw());
+            }
+        }
+
+        // Se crea la malla una sola vez aquí
+        mesh = new Mesh();
+        function animate() {
+            ctx.fillStyle = `rgba(0, 0, 0, ${1 - params.trailOpacity})`;
+            ctx.fillRect(0, 0, width, height);
+
+            mesh.update();
+            mesh.draw();
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
