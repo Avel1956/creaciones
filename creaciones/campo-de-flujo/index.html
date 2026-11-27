@@ -36,7 +36,7 @@ function paso(){
   }
   t += 0.0025; requestAnimationFrame(paso);
 }
-addEventListener('resize', tam);
+addEventListener('resize', semilla);
 addEventListener('pointermove', e => { mx = e.clientX/innerWidth; my = e.clientY/innerHeight; });
 addEventListener('click', semilla);
 semilla(); paso();
